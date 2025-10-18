@@ -9,5 +9,3 @@ from .conv import (
 )
 from .seanet import SEANetEncoder, SEANetDecoder, ConditionalSEANetDecoder
 from .transformer import StreamingTransformer
-from .speaker_adapter import SpeakerAdapter
-from .sva import SpeakerVarianceAdapter

@@ -16,16 +16,10 @@ from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizer
 
 
 class PasrWithQuantModule(pl.LightningModule):
-    """Example of LightningModule for MNIST classification.
-    A LightningModule organizes your PyTorch code into 6 sections:
-        - Computations (init)
-        - Train loop (training_step)
-        - Validation loop (validation_step)
-        - Test loop (test_step)
-        - Prediction Loop (predict_step)
-        - Optimizers and LR Schedulers (configure_optimizers)
-    Docs:
-        https://lightning.ai/docs/pytorch/latest/common/lightning_module.html
+    """
+    LightningModule for streaming pseudo ASR (PASR) with Vector Quantization.
+    Combines SEANet encoder, transformer, and factorized vector quantizer.
+    Predicts discrete codes using a code predictor and computes cross-entropy loss.
     """
 
     def __init__(
@@ -90,8 +84,6 @@ class PasrWithQuantModule(pl.LightningModule):
         return logits, z_embed, extra_metrics
 
     def on_train_start(self):
-        # by default lightning executes validation step sanity checks before training starts,
-        # so we need to make sure val_acc_best doesn't store accuracy from these checks
         self.val_acc_best.reset()
 
     def model_step(self, batch: Any):
@@ -118,21 +110,9 @@ class PasrWithQuantModule(pl.LightningModule):
         self.log("train/codebook_loss", self.codebook_loss, on_step=True, on_epoch=True)
         self.log("train/acc", self.train_acc, on_step=True, on_epoch=True)
 
-        # we can return here dict with any tensors
-        # and then read it in some callback or in `training_epoch_end()` below
-        # remember to always return loss from `training_step()` or backpropagation will fail!
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def on_train_epoch_end(self):
-        # `outputs` is a list of dicts returned from `training_step()`
-
-        # Warning: when overriding `training_epoch_end()`, lightning accumulates outputs from all batches of the epoch
-        # this may not be an issue when training on mnist
-        # but on larger datasets/models it's easy to run into out-of-memory errors
-
-        # consider detaching tensors before returning them from `training_step()`
-        # or using `on_train_epoch_end()` instead which doesn't accumulate outputs
-
         pass
 
     def validation_step(self, batch: Any, batch_idx: int):
@@ -149,8 +129,6 @@ class PasrWithQuantModule(pl.LightningModule):
     def on_validation_epoch_end(self):
         acc = self.val_acc.compute()  # get current val acc
         self.val_acc_best(acc)  # update best so far val acc
-        # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
-        # otherwise metric would be reset by lightning after each epoch
         self.log("val/acc_best", self.val_acc_best.compute(), sync_dist=True)
 
     def test_step(self, batch: Any, batch_idx: int):

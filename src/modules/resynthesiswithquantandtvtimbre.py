@@ -1,34 +1,27 @@
 # Adapted from: https://github.com/ashleve/lightning-hydra-template/blob/main/src/models/mnist_module.py
 from typing import Any
-from dataclasses import dataclass, asdict
+from dataclasses import asdict
 
 import pytorch_lightning as pl
 import torch
 from audiotools import AudioSignal
 from torchmetrics import MinMetric, MeanMetric
-from torchmetrics.classification.accuracy import Accuracy
 
 from src.modules import PasrWithQuantModule
-from src.models import MimiEncoderModel, MimiDecoderWithTVTimbreModel
-from src.components import SEANetEncoder, transformer, SEANetDecoder, SpeakerVarianceAdapter
+from src.models import MimiDecoderWithTVTimbreModel
+from src.components import SEANetDecoder
 from src.components.frame_synthesizer import FrameSynthesizerWOExciter
 from src.components.discriminator import Discriminator
-from src.components.losses import L1Loss, MultiScaleSTFTLoss, MelSpectrogramLoss, GANLoss, LossPED  #HuBERTLoss, SpeakerLoss
-from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs, DecSeanetNCArgs, VarianceAdapterArgs, Lambdas, FrameSynthesizerArgs
+from src.components.losses import L1Loss, MultiScaleSTFTLoss, MelSpectrogramLoss, GANLoss, LossPED
+from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs, DecSeanetNCArgs, Lambdas, FrameSynthesizerArgs
 
 
 
 class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
-    """Example of LightningModule for MNIST classification.
-    A LightningModule organizes your PyTorch code into 6 sections:
-        - Computations (init)
-        - Train loop (training_step)
-        - Validation loop (validation_step)
-        - Test loop (test_step)
-        - Prediction Loop (predict_step)
-        - Optimizers and LR Schedulers (configure_optimizers)
-    Docs:
-        https://lightning.ai/docs/pytorch/latest/common/lightning_module.html
+    """
+    LightningModule for resynthesis with Vector Quantization content encoder and TV-Timbre decoder.
+    Combines pretrained PASR encoder with a SEANet decoder enhanced with TV-Timbre features.
+    Uses multiple loss functions including adversarial, STFT, mel-spectrogram, waveform, and perceptual losses.
     """
 
     def __init__(
@@ -52,8 +45,6 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
     ):
         super().__init__()
 
-        # this line allows to access init params with 'self.hparams' attribute
-        # also ensures init params will be stored in ckpt
         self.save_hyperparameters()
 
         # Multiple optimizers need manual optimization
@@ -79,10 +70,6 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
             device=self.device, **asdict(frame_synthesizer_args)
         )
         decoder = SEANetDecoder(**asdict(decoder_seanet_args))
-
-        # self.projector = torch.nn.Linear(
-        #     self.hparams.num_codes, self.hparams.encoder_dim
-        # )
 
         self.decoder = MimiDecoderWithTVTimbreModel(
             decoder,
@@ -123,9 +110,6 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         self.mel_loss = MelSpectrogramLoss()
         self.gan_loss = GANLoss(self.discriminator)
         self.loss_ped = LossPED()
-        # self.hubert_loss = HuBERTLoss(device=self.device)
-        # self.speaker_loss = SpeakerLoss(device=self.device)
-
 
         # for averaging loss across batches
         loss_metric = MeanMetric()
@@ -135,9 +119,6 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         self.train_adv_gen_loss = loss_metric.clone()
         self.train_adv_feat_loss = loss_metric.clone()
         self.train_adv_d_loss = loss_metric.clone()
-        # self.train_hubert_loss = loss_metric.clone()
-        # self.train_speaker_loss = loss_metric.clone()
-
 
         self.val_stft_loss = loss_metric.clone()
         self.val_mel_loss = loss_metric.clone()
@@ -159,13 +140,10 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
 
     def forward(self, x: torch.Tensor, spkr_embed: torch.Tensor, pitch_rate: float = 1.0, energy_rate: float = 1.0):
         _, z_embed, _ = self.encoder(x)
-        # z_embed = self.projector(logits.transpose(1, 2)).transpose(1, 2)
         audio = self.decoder.decode(z_embed, spkr_embed, pitch_rate=pitch_rate, energy_rate=energy_rate)
         return audio
 
     def on_train_start(self):
-        # by default lightning executes validation step sanity checks before training starts,
-        # so we need to make sure val_acc_best doesn't store accuracy from these checks
         self.val_loss_best.reset()
 
     def model_step(self, batch: Any):
@@ -211,15 +189,10 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         self.manual_backward(disc_loss)
         opt_d.step()
         
-        
-        # Manually step the discriminator scheduler (if updating every step)
-        # sch_d.step()
 
         #### Generator Update ####
         opt_g.zero_grad()
 
-        # output["hubert_loss"] = self.hubert_loss(recons, signal)
-        # output["speaker_loss"] = self.speaker_loss(recons, spkr_embed)
         output["stft_loss"] = self.stft_loss(recons, signal)
         output["mel_loss"] = self.mel_loss(recons, signal)
         output["waveform_loss"] = self.waveform_loss(recons, signal)
@@ -234,9 +207,6 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         # Manually backprop for generator
         self.manual_backward(gen_loss)
         opt_g.step()
-        
-        # Manually step the generator scheduler (if updating every step)
-        # sch_g.step()
 
         
         # update and log metrics
@@ -246,8 +216,7 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         self.train_adv_gen_loss(output["adv_gen_loss"])
         self.train_adv_feat_loss(output["adv_feat_loss"])
         self.train_adv_d_loss(output["adv/d_loss"])
-        # self.train_hubert_loss(output["hubert_loss"])
-        # self.train_speaker_loss(output["speaker_loss"])
+
 
         self.log("train/stft/loss", self.train_stft_loss, on_step=False, on_epoch=True, batch_size=batch_size)
         self.log("train/mel/loss", output["mel_loss"], on_step=True, on_epoch=True, batch_size=batch_size)
@@ -256,24 +225,10 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         self.log("train/adv/feat_loss", self.train_adv_feat_loss, on_step=False, on_epoch=True, batch_size=batch_size)
         self.log("train/total_gen_loss", output["loss"], on_step=True, on_epoch=True, batch_size=batch_size)
         self.log("train/adv/d_loss", self.train_adv_d_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        # self.log("train/hubert_loss", self.train_hubert_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        # self.log("train/speaker_loss", self.train_speaker_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-
-        # we can return here dict with any tensors
-        # and then read it in some callback or in `training_epoch_end()` below
-        # remember to always return loss from `training_step()` or backpropagation will fail!
         return output
 
 
     def on_train_epoch_end(self):
-        # `outputs` is a list of dicts returned from `training_step()`
-
-        # Warning: when overriding `training_epoch_end()`, lightning accumulates outputs from all batches of the epoch
-        # this may not be an issue when training on mnist
-        # but on larger datasets/models it's easy to run into out-of-memory errors
-
-        # consider detaching tensors before returning them from `training_step()`
-        # or using `on_train_epoch_end()` instead which doesn't accumulate outputs
         sch_g, sch_d = self.lr_schedulers()
         sch_g.step()
         sch_d.step()
@@ -307,8 +262,6 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
     def on_validation_epoch_end(self):
         mel_loss = self.val_mel_loss.compute()  # get current val acc
         self.val_loss_best(mel_loss)  # update best so far val acc
-        # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
-        # otherwise metric would be reset by lightning after each epoch
         self.log("val/loss_best", self.val_loss_best.compute())
 
     def test_step(self, batch: Any, batch_idx: int):

@@ -1,0 +1,5 @@
+{"audio_filepath": "/data/waris/code/DarkStream/sample_wav/ASI/arctic_a0005.wav", "pred_text": "will we ever forget it"}
+{"audio_filepath": "/data/waris/code/DarkStream/sample_wav/ASI/arctic_a0002.wav", "pred_text": "not at this particular case tom apologized whittemore"}
+{"audio_filepath": "/data/waris/code/DarkStream/sample_wav/ASI/arctic_a0003.wav", "pred_text": "for the twentieth time that evening the two men shook hands"}
+{"audio_filepath": "/data/waris/code/DarkStream/sample_wav/ASI/arctic_a0001.wav", "pred_text": "author of the danger trail philip steles etc"}
+{"audio_filepath": "/data/waris/code/DarkStream/sample_wav/ASI/arctic_a0004.wav", "pred_text": "lord but i'm glad to see you again phil"}

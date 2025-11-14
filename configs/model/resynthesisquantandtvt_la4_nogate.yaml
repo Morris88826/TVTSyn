@@ -92,9 +92,9 @@ model:
       gate_hidden: 256
       token_dropout_p: 0.1
       rope_base: 10000.0
-      no_gtm: true
+      no_gtm: false
       no_slerp: false
-      no_gate: false
+      no_gate: true
       fixed_alpha: 0.5
       no_prior: false
     lambdas:

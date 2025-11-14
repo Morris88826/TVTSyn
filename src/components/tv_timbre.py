@@ -198,7 +198,7 @@ class StreamingGlobalOnlyTVTimbre(StreamingModule[_TVTimbreState]):
         self.fixed_alpha = fixed_alpha
         self.use_prior = not no_prior
 
-        self.gtm = GlobalTimbreMemory(g_dim=g_dim, d_kv=d_kv, num_tokens=num_tokens, use_prior=use_prior)
+        self.gtm = GlobalTimbreMemory(g_dim=g_dim, d_kv=d_kv, num_tokens=num_tokens, use_prior=self.use_prior)
         
         self.q_proj = nn.Conv1d(content_dim, d_kv, 1, bias=False)
 

@@ -2,6 +2,7 @@ import os
 import warnings
 from typing import Any, Dict, Optional, Type
 
+import torch
 from lightning_fabric.utilities.cloud_io import get_filesystem
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.cli import (
@@ -140,11 +141,24 @@ class CustomLightningCLI(LightningCLI):
         
         We use it to load just the model‐weights if --load_weights_path was provided.
         """
-        load_path = self.config.get("load_weights_path", None)
+        load_path = self.config.fit.get("load_weights_path", None)
         if load_path:
-            ckpt = torch.load(load_path, map_location=lambda storage, loc: storage)
-            # Only load the model's state_dict; optimizer / lr_scheduler are untouched.
-            self.model.load_state_dict(ckpt["state_dict"])
+            ckpt = torch.load(load_path, map_location="cpu")
+            sd = ckpt.get("state_dict", ckpt)  # tolerate raw state_dict too
+            missing, unexpected = self.model.load_state_dict(sd, strict=False)
+            # rank_zero_info(
+            #     f"Loaded model weights from {load_path}. "
+            #     f"missing={len(missing)} unexpected={len(unexpected)}"
+            # )
+
+            # ckpt = torch.load(load_path, map_location=lambda storage, loc: storage)
+            # # Only load the model's state_dict; optimizer / lr_scheduler are untouched.
+            # self.model.load_state_dict(ckpt["state_dict"], strict=False)
+            print(f"Loaded model weights from {load_path}.")
+            if len(missing) > 0:
+                print(f"  missing keys: {missing}")
+            if len(unexpected) > 0:
+                print(f"  unexpected keys: {unexpected}")
 
     def before_fit(self) -> None:
         if self.config.fit.get("git_commit_before_fit") and not os.environ.get("DEBUG", False):

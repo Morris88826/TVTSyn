@@ -465,3 +465,18 @@ class StyleFeatureArgs:
     ttb_num_heads: int = 8
     ttb_dropout: float = 0.1
     global_embed_dim: int = 192
+
+@dataclass
+class TVTimbreArgs:
+    d_kv: int = 128
+    num_tokens: int = 48
+    n_heads: int = 4
+    attn_dropout: float = 0.0
+    gate_hidden: int = 256
+    token_dropout_p: float = 0.1
+    rope_base: float = 10000.0
+    no_gtm: bool = False
+    no_slerp: bool = False
+    no_gate: bool = False
+    fixed_alpha: float = 0.5
+    no_prior: bool = False

@@ -13,7 +13,7 @@ from src.components import SEANetDecoder
 from src.components.frame_synthesizer import FrameSynthesizerWOExciter
 from src.components.discriminator import Discriminator
 from src.components.losses import L1Loss, MultiScaleSTFTLoss, MelSpectrogramLoss, GANLoss, LossPED
-from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs, DecSeanetNCArgs, Lambdas, FrameSynthesizerArgs
+from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs, DecSeanetNCArgs, Lambdas, FrameSynthesizerArgs, TVTimbreArgs
 
 
 
@@ -35,6 +35,7 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         encoder_dim: int = 512,
         decoder_seanet_args: DecSeanetNCArgs = DecSeanetNCArgs(),
         frame_synthesizer_args: FrameSynthesizerArgs = FrameSynthesizerArgs(),
+        tvtimbre_args: TVTimbreArgs = TVTimbreArgs(),
         lambdas: Lambdas = Lambdas(),
         learning_rate: float = 0.0001,
         lr_betas: list = [0.8, 0.99],
@@ -67,7 +68,7 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
 
         ## Init decoder
         decoder_transformer = FrameSynthesizerWOExciter(
-            device=self.device, **asdict(frame_synthesizer_args)
+            device=self.device, **asdict(frame_synthesizer_args), tvtimbre_args=asdict(tvtimbre_args)
         )
         decoder = SEANetDecoder(**asdict(decoder_seanet_args))
 

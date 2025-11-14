@@ -107,18 +107,21 @@ class GlobalTimbreMemory(nn.Module):
     """
     Expand a global timbre vector into per-utterance K/V token sets.
     """
-    def __init__(self, g_dim: int = 192, d_kv: int = 128, num_tokens: int = 48, hidden: int = 256):
+    def __init__(self, g_dim: int = 192, d_kv: int = 128, num_tokens: int = 48, hidden: int = 256, use_prior: bool = True):
         super().__init__()
         self.T = num_tokens
         self.d_kv = d_kv
+        self.use_prior = use_prior
+
         # Simple MLP -> [B, T*(K+V)]
         self.net = nn.Sequential(
             nn.Linear(g_dim, hidden), nn.GELU(),
             nn.Linear(hidden, 2 * num_tokens * d_kv)
         )
         # Optional per-token prior (learned prototypes) helps stabilize early training
-        self.k_prior = nn.Parameter(torch.randn(num_tokens, d_kv) * 0.02)
-        self.v_prior = nn.Parameter(torch.randn(num_tokens, d_kv) * 0.02)
+        if use_prior:
+            self.k_prior = nn.Parameter(torch.randn(num_tokens, d_kv) * 0.02)
+            self.v_prior = nn.Parameter(torch.randn(num_tokens, d_kv) * 0.02)
 
     def forward(self, g: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -129,6 +132,10 @@ class GlobalTimbreMemory(nn.Module):
         B = g.size(0)
         raw = self.net(g)                                 # [B, 2*T*d]
         k, v = torch.split(raw, self.T * self.d_kv, dim=-1)
+        if not self.use_prior:
+            k = k.view(B, self.T, self.d_kv)              # [B,T,d]
+            v = v.view(B, self.T, self.d_kv)              # [B,T,d]
+            return k, v
         k = k.view(B, self.T, self.d_kv) + self.k_prior   # [B,T,d]
         v = v.view(B, self.T, self.d_kv) + self.v_prior   # [B,T,d]
         return k, v
@@ -140,6 +147,11 @@ def slerp(a: torch.Tensor, b: torch.Tensor, t: torch.Tensor, eps: float = 1e-8) 
     omega = torch.acos(dot); sin_omega = torch.sin(omega).clamp_min(eps)
     return (torch.sin((1 - t) * omega) / sin_omega) * a_n + (torch.sin(t * omega) / sin_omega) * b_n
 
+
+def linear_interp(a: torch.Tensor, b: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    """Linear interpolation with L2 normalization"""
+    result = (1 - t) * a + t * b
+    return F.normalize(result, dim=-1)
 
 @dataclass
 class _TVTimbreState:
@@ -153,15 +165,22 @@ class StreamingGlobalOnlyTVTimbre(StreamingModule[_TVTimbreState]):
     def __init__(
             self, 
             content_dim: int, 
-            g_dim: int = 704, 
-            d_kv: int = 128, 
+            g_dim: int = 704,
             d_out: int = 192, 
+            d_kv: int = 128,
             num_tokens: int = 48,
             n_heads: int = 4, 
             attn_dropout: float = 0.0, 
             gate_hidden: int = 256,
             token_dropout_p: float = 0.1, 
             rope_base: float = 10000.0,
+            # ========== ABLATION FLAGS ==========
+            no_gtm: bool = False,        # If True, use mean pooling instead of attention
+            no_slerp: bool = False,      # If True, use linear interpolation instead of Slerp
+            no_gate: bool = False,       # If True, use fixed alpha=0.5 instead of learned gating
+            fixed_alpha: float = 0.5,    # Fixed alpha value when no_gate=True
+            no_prior: bool = False,    # If True, use learned priors in GTM
+            # ====================================
         ):
         super().__init__()
         assert d_kv % n_heads == 0
@@ -172,13 +191,23 @@ class StreamingGlobalOnlyTVTimbre(StreamingModule[_TVTimbreState]):
         self.token_dropout_p = token_dropout_p
         self.rope_base = rope_base
 
-        self.gtm = GlobalTimbreMemory(g_dim=g_dim, d_kv=d_kv, num_tokens=num_tokens)
+        # Store ablation flags
+        self.no_gtm = no_gtm
+        self.no_slerp = no_slerp
+        self.no_gate = no_gate
+        self.fixed_alpha = fixed_alpha
+        self.use_prior = not no_prior
+
+        self.gtm = GlobalTimbreMemory(g_dim=g_dim, d_kv=d_kv, num_tokens=num_tokens, use_prior=use_prior)
         
         self.q_proj = nn.Conv1d(content_dim, d_kv, 1, bias=False)
-        self.cross = CrossAttn(d_kv, d_kv, d_kv, n_heads, attn_dropout, 0.0)
+
+        if not self.no_gtm:
+            self.cross = CrossAttn(d_kv, d_kv, d_kv, n_heads, attn_dropout, 0.0)
         self.speaker_proj = nn.Linear(g_dim, d_out)
         self.post = nn.Conv1d(d_kv, d_out, 1)
-        self.gate = nn.Sequential(nn.Conv1d(content_dim, gate_hidden, 1), nn.GELU(), nn.Conv1d(gate_hidden, 1, 1), nn.Sigmoid())
+        if not self.no_gate:
+            self.gate = nn.Sequential(nn.Conv1d(content_dim, gate_hidden, 1), nn.GELU(), nn.Conv1d(gate_hidden, 1, 1), nn.Sigmoid())
 
     def _init_streaming_state(self, batch_size: int) -> _TVTimbreState:
         return _TVTimbreState(pos_offset=0)
@@ -194,20 +223,43 @@ class StreamingGlobalOnlyTVTimbre(StreamingModule[_TVTimbreState]):
             V_seq = V_seq * keep[None, :, None]
 
         q_new = self.q_proj(x).transpose(1,2)                 # [B,T,D]
-        alpha = self.gate(x).transpose(1, 2)                  # [B,T,1]
+
+        # ========== ABLATION: no_gate ==========
+        if self.no_gate:
+            # Use fixed alpha value
+            alpha = torch.full((B, T, 1), self.fixed_alpha, device=device)
+        else:
+            # Use learned gating
+            alpha = self.gate(x).transpose(1, 2)  # [B,T,1]
+        # =======================================
 
         if state is None:
             start = 0
         else:
             start = int(state.pos_offset)
 
-        cos_q, sin_q = build_rope_cache_offset(start, T, self.head_dim, device, base=self.rope_base)
-        attn = self.cross(q_new, K_seq, V_seq, rope_q=(cos_q, sin_q), rope_k=None) # [B,T,D]
+        # ========== ABLATION: no_gtm ==========
+        if self.no_gtm:
+            # Use mean pooling over GTM facets instead of attention
+            attn = V_seq.mean(dim=1, keepdim=True).expand(B, T, self.d_kv)  # [B,T,D]
+        else:
+            # Use normal cross-attention
+            cos_q, sin_q = build_rope_cache_offset(start, T, self.head_dim, device, base=self.rope_base)
+            attn = self.cross(q_new, K_seq, V_seq, rope_q=(cos_q, sin_q), rope_k=None)  # [B,T,D]
+        # ======================================
 
         H = attn.transpose(1, 2)                                     # [B,D,T]
         H192 = F.normalize(self.post(H), dim=1)                      # [B,192,T]
         g = self.speaker_proj(F.normalize(global_timbre, dim=-1)).unsqueeze(-1).expand(B, self.d_out, T)  # [B,192,T]
-        tv_embed = slerp(H192.transpose(1, 2), g.transpose(1, 2), alpha).transpose(1, 2)
+
+        # ========== ABLATION: no_slerp ==========
+        if self.no_slerp:
+            # Use linear interpolation instead of Slerp
+            tv_embed = linear_interp(H192.transpose(1, 2), g.transpose(1, 2), alpha).transpose(1, 2)
+        else:
+            # Use normal Slerp
+            tv_embed = slerp(H192.transpose(1, 2), g.transpose(1, 2), alpha).transpose(1, 2)
+        # ========================================
 
         if state is not None:
             state.pos_offset += T

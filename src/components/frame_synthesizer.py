@@ -267,6 +267,7 @@ class FrameSynthesizerWOExciter(StreamingContainer):
         use_tv_timbre: bool = True,
         device=None,
         dtype=None,
+        tvtimbre_args: dict = {},
         **kwargs,
     ):
         super().__init__()
@@ -279,6 +280,7 @@ class FrameSynthesizerWOExciter(StreamingContainer):
                 content_dim=input_dimension,
                 g_dim=timbre_dimension,
                 d_out=timbre_cond_dim,
+                **tvtimbre_args
             )
         else:
             self.timbre_encoder = nn.Conv1d(

@@ -103,6 +103,7 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
                 if k.startswith("discriminator.")
             }
             self.discriminator.load_state_dict(discriminator_state, strict=False)
+            print(f"Loaded pretrained decoder and discriminator from {self.hparams.decoder_path}")
 
         # loss function
         self.lambdas = asdict(lambdas)

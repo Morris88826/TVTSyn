@@ -145,20 +145,42 @@ class CustomLightningCLI(LightningCLI):
         if load_path:
             ckpt = torch.load(load_path, map_location="cpu")
             sd = ckpt.get("state_dict", ckpt)  # tolerate raw state_dict too
-            missing, unexpected = self.model.load_state_dict(sd, strict=False)
-            # rank_zero_info(
-            #     f"Loaded model weights from {load_path}. "
-            #     f"missing={len(missing)} unexpected={len(unexpected)}"
-            # )
 
-            # ckpt = torch.load(load_path, map_location=lambda storage, loc: storage)
-            # # Only load the model's state_dict; optimizer / lr_scheduler are untouched.
-            # self.model.load_state_dict(ckpt["state_dict"], strict=False)
+            model_sd = self.model.state_dict()
+
+            filtered_sd = {}
+            mismatched = []
+
+            for k, v in sd.items():
+                if k not in model_sd:
+                    # let load_state_dict report "unexpected" later
+                    filtered_sd[k] = v
+                    continue
+
+                # Check for shape mismatch
+                if model_sd[k].shape != v.shape:
+                    mismatched.append(
+                        (k, tuple(model_sd[k].shape), tuple(v.shape))
+                    )
+                    # skip this key
+                    continue
+
+                filtered_sd[k] = v
+
+
+            # missing, unexpected = self.model.load_state_dict(sd, strict=False)
+            missing, unexpected = self.model.load_state_dict(filtered_sd, strict=False)
+
             print(f"Loaded model weights from {load_path}.")
             if len(missing) > 0:
                 print(f"  missing keys: {missing}")
             if len(unexpected) > 0:
                 print(f"  unexpected keys: {unexpected}")
+            if len(mismatched) > 0:
+                print("  mismatched keys (skipped due to shape):")
+                for name, model_shape, ckpt_shape in mismatched:
+                    print(f"    {name}: model {model_shape} vs ckpt {ckpt_shape}")
+
 
     def before_fit(self) -> None:
         if self.config.fit.get("git_commit_before_fit") and not os.environ.get("DEBUG", False):

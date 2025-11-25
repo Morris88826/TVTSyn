@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.append('..')
 import torch
 import librosa
 import argparse
@@ -7,7 +9,7 @@ from scipy.io import wavfile
 from IPython import display as disp
 from pathlib import Path
 from tqdm import tqdm
-from src.modules import ResynthesisWithBottleneckAndTVTimbreModule, ResynthesisWithLogitsAndTVTimbreModule, ResynthesisWithQuantAndTVTimbreModule, SpeakerModule, ResynthesisWithBottleneckModule, ResynthesisWithQuantModule
+from src.modules import ResynthesisWithQuantAndTVTimbreModule, SpeakerModule
 
 MAX_WAV_VALUE = 32768.0
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,11 +28,11 @@ data_dir = {
 } 
 
 
-def inference_ns(source_audio_path, tgt_embed, sample_rate=16000):
+def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cuda'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
-    resynthesizer.eval()
+    # resynthesizer.eval()
     with torch.no_grad():
         resyth_audio = resynthesizer(src_audio, tgt_embed)
         resyth_audio = resyth_audio.squeeze()
@@ -38,11 +40,11 @@ def inference_ns(source_audio_path, tgt_embed, sample_rate=16000):
         resyth_audio = resyth_audio.detach().cpu().numpy().astype('int16')
     return resyth_audio
 
-def inference(source_audio_path, tgt_embed, model_name, use_projector=False, sample_rate=16000, right_context=4):
+def inference(resynthesizer, source_audio_path, tgt_embed, model_name, use_projector=False, sample_rate=16000, right_context=4, device='cuda'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
-    resynthesizer.eval()
+    # resynthesizer.eval()
     with torch.no_grad():
         original_length = src_audio.shape[-1]
         chunk_size = 3
@@ -108,11 +110,11 @@ def inference(source_audio_path, tgt_embed, model_name, use_projector=False, sam
     resyth_audio = resyth_audio.astype('int16')
     return resyth_audio
 
-def inference_latransformer(source_audio_path, tgt_embed, sample_rate=16000):
+def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cuda'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
-    resynthesizer.eval()
+    # resynthesizer.eval()
     with torch.no_grad():
         original_length = src_audio.shape[-1]
         chunk_size = 3
@@ -185,73 +187,68 @@ def inference_latransformer(source_audio_path, tgt_embed, sample_rate=16000):
     resyth_audio = resyth_audio.astype('int16')
     return resyth_audio
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, help="Model name to use")
-    parser.add_argument("--metadata", type=str, default="/home/mtseng/anony_benchmark/notebooks/evaluation_data.csv", help="Path to the metadata CSV file")
-    parser.add_argument("--speaker_embeddings", type=str, default="/home/mtseng/anony_benchmark/notebooks/speaker_embeddings.pkl", help="Path to save/load speaker embeddings")
-    parser.add_argument("--right_context", type=int, default=4, help="Right context for streaming model, e.g., 4 for 80ms latency")
-    parser.add_argument("--streaming", action="store_true", help="Whether to use streaming model")
-    parser.add_argument("--out_dir", type=str, default="/data/mtseng/ICLR2026/results", help="Directory to save the converted audio files")
-    args = parser.parse_args()
 
-    speaker_encoder = SpeakerModule(device="cuda")
-    use_projector = False
-    model_name = args.model
-    if model_name == "DarkStream-logits-TVT":
-        resynthesizer = ResynthesisWithLogitsAndTVTimbreModule.load_from_checkpoint(
-            "./ckpts/resynthesis_with_logits_and_tvtimbre.ckpt",
-            encoder_path=None,
-            map_location="cuda"
-        )
-        use_projector = True
-    elif model_name == "DarkStream-bottleneck-TVT":
-        # Uncomment the following line to use the KM Resynthesis Module instead
-        resynthesizer = ResynthesisWithBottleneckAndTVTimbreModule.load_from_checkpoint(
-            "./ckpts/resynthesis_bottleneck_and_tvtimbre.ckpt",
-            encoder_path=None,
-            decoder_pretrained=None,
-            kmeans_path=None,
-            map_location="cuda"
-        )
-    elif model_name == "DarkStream-quant-TVT":
+def get_synthesizer_model(model_name, device='cuda'):
+    if model_name == "DarkStream-quant-TVT":
         resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
-            "./ckpts/resynthesis_quant_and_tvtimbre.ckpt",
+            "../ckpts/resynthesis_quant_and_tvtimbre.ckpt",
             encoder_path=None,
-            map_location="cuda"
+            map_location=device
         )
-    elif model_name == "DarkStream-bottleneck":
-        resynthesizer = ResynthesisWithBottleneckModule.load_from_checkpoint(
-            "./ckpts/resynthesis_with_bottleneck.ckpt",
+    elif model_name == "DarkStream-quant-TVT-nogate":
+        resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
+            "../ckpts/resynthesis_quant_and_tvtimbre_nogate.ckpt",
             encoder_path=None,
-            decoder_pretrained=None,
-            kmeans_path=None,
-            map_location="cuda"
+            map_location=device
         )
-    elif model_name == "DarkStream-quant":
-        resynthesizer = ResynthesisWithQuantModule.load_from_checkpoint(
-            "./ckpts/resynthesis_with_quant.ckpt",
+    elif model_name == "DarkStream-quant-TVT-nogtm":
+        resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
+            "../ckpts/resynthesis_quant_and_tvtimbre_nogtm.ckpt",
             encoder_path=None,
-            map_location="cuda"
+            map_location=device
         )
+    elif model_name == "DarkStream-quant-TVT-noprior":
+        resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
+            "../ckpts/resynthesis_quant_and_tvtimbre_noprior.ckpt",
+            encoder_path=None,
+            map_location=device
+        )
+    elif model_name == "DarkStream-quant-TVT-noslerp":
+        resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
+            "../ckpts/resynthesis_quant_and_tvtimbre_noslerp.ckpt",
+            encoder_path=None,
+            map_location=device
+        )
+    elif model_name == "DarkStream-quant-TVT-token12":
+        resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
+            "../ckpts/resynthesis_quant_and_tvtimbre_token12.ckpt",
+            encoder_path=None,
+            map_location=device
+        )
+    elif model_name == "DarkStream-quant-TVT-token24":
+        resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
+            "../ckpts/resynthesis_quant_and_tvtimbre_token24.ckpt",
+            encoder_path=None,
+            map_location=device
+        )
+    else:
+        raise ValueError("Unknown model name: {}".format(model_name))
+    
+    # resynthesizer = resynthesizer.to(device)
+    return resynthesizer
 
+
+def run_rank(rank: int, world_size: int, device: str, model_name: str, selected_metadata_df: pd.DataFrame, speaker_embeddings: pd.DataFrame, out_dir: str):
+    # speaker_encoder = SpeakerModule(device=device)
+    # use_projector = False
+    
+    resynthesizer = get_synthesizer_model(model_name, device=device)
     resynthesizer = resynthesizer.eval()
 
-    metadata_path = args.metadata
-    metadata_df = pd.read_csv(metadata_path)
-    out_dir = "{}/{}".format(args.out_dir, model_name)
-    if not args.streaming:
-        out_dir += "-ns"
-    elif args.right_context > 0:
-        out_dir += "-{}ms".format(args.right_context*20)
-    print("Output directory:", out_dir)
-    os.makedirs(out_dir, exist_ok=True)
+    sharded_df = selected_metadata_df.iloc[rank::world_size]
+    
 
-    speaker_embeddings = pd.read_pickle(args.speaker_embeddings)
-    selected_metadata_df = metadata_df[metadata_df['target_dataset'] == 'emime-eng']
-    print("Total # utterances to convert: {}".format(len(selected_metadata_df)))
-
-    for idx, row in tqdm(selected_metadata_df.iterrows(), total=len(selected_metadata_df)):
+    for idx, row in tqdm(sharded_df.iterrows(), total=len(sharded_df)):
         source_dataset = row['source_dataset']
         source_speaker = row['source_speaker']
         source_utterance = row['source_utterance']
@@ -273,7 +270,56 @@ if __name__ == "__main__":
         tgt_emb = torch.from_numpy(tgt_emb).unsqueeze(0).to(device)
 
         if not args.streaming:
-            synth_audio = inference_ns(source_audio_path, tgt_emb)
+            synth_audio = inference_ns(resynthesizer, source_audio_path, tgt_emb, device=device)
         else:
-            synth_audio = inference_latransformer(source_audio_path, tgt_emb)
-        wavfile.write(out_wav_path, 16000, synth_audio)    
+            synth_audio = inference_latransformer(resynthesizer, source_audio_path, tgt_emb, device=device)
+        wavfile.write(out_wav_path, 16000, synth_audio)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True, help="Model name to use")
+    parser.add_argument("--metadata", type=str, default="/home/mtseng/anony_benchmark/notebooks/evaluation_data.csv", help="Path to the metadata CSV file")
+    parser.add_argument("--speaker_embeddings", type=str, default="/home/mtseng/anony_benchmark/notebooks/speaker_embeddings.pkl", help="Path to save/load speaker embeddings")
+    parser.add_argument("--right_context", type=int, default=4, help="Right context for streaming model, e.g., 4 for 80ms latency")
+    parser.add_argument("--streaming", action="store_true", help="Whether to use streaming model")
+    parser.add_argument("--out_dir", type=str, default="/data/mtseng/ICLR2026/results", help="Directory to save the converted audio files")
+    args = parser.parse_args()
+
+    model_name = args.model
+    metadata_path = args.metadata
+    metadata_df = pd.read_csv(metadata_path)
+    out_dir = "{}/{}".format(args.out_dir, model_name)
+    if not args.streaming:
+        out_dir += "-ns"
+    elif args.right_context > 0:
+        out_dir += "-{}ms".format(args.right_context*20)
+    print("Output directory:", out_dir)
+    os.makedirs(out_dir, exist_ok=True)
+
+    speaker_embeddings = pd.read_pickle(args.speaker_embeddings)
+    selected_metadata_df = metadata_df[metadata_df['target_dataset'] == 'emime-eng']
+    print("Total # utterances to convert: {}".format(len(selected_metadata_df)))
+
+
+    # Multi-GPU via torchrun
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    device = f"cuda:{local_rank}" if world_size > 1 else "cuda:0"
+
+
+    run_rank(local_rank, world_size, device, model_name, selected_metadata_df, speaker_embeddings, out_dir)
+
+
+"""
+torchrun --nproc_per_node=4 evalution.py --model DarkStream-quant-TVT \
+      --streaming --right_context 4 --metadata /home/mtseng/anony_benchmark/notebooks/evaluation_data.csv \
+        --speaker_embeddings /home/mtseng/anony_benchmark/notebooks/speaker_embeddings.pkl \
+            --out_dir /data/mtseng/ICLR2026/results
+
+in case port is occupied:
+
+torchrun --standalone --nproc_per_node=4 --master-port=29666 evaluation.py \
+    --model DarkStream-quant-TVT-nogtm --metadata evaluation_data.csv \
+        --speaker_embeddings speaker_embeddings.pkl --out_dir=/data/waris/code/TVTSyn/ICLR26Results
+"""

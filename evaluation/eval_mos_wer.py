@@ -7,12 +7,15 @@ import librosa
 import argparse
 import pandas as pd
 from NISQA.nisqa.NISQA_model import nisqaModel
-import nemo.collections.asr as nemo_asr
-from nemo.collections.asr.metrics.wer import word_error_rate
+# import nemo.collections.asr as nemo_asr
+# from nemo.collections.asr.metrics.wer import word_error_rate
+import warnings
+## Ignore future warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # MOS
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-asr = nemo_asr.models.EncDecCTCModelBPE.restore_from("asr/stt_en_conformer_ctc_xlarge_v1.10.0/stt_en_conformer_ctc_xlarge.tar.gz")
+# asr = nemo_asr.models.EncDecCTCModelBPE.restore_from("asr/stt_en_conformer_ctc_xlarge_v1.10.0/stt_en_conformer_ctc_xlarge.tar.gz")
 
 def normalize(text):
     # lowercase
@@ -80,12 +83,12 @@ if __name__ == "__main__":
                 'ms_channel': None,
                 'output_dir': None
             }
-            nisqa = nisqaModel(args, verbose=False)
+            nisqa = nisqaModel(args) #, verbose=False)
             result = nisqa.predict()
 
             # WER
-            pred_text = asr.transcribe([audio_file])[0]
-            wer = word_error_rate(hypotheses=[normalize(pred_text)], references=[normalize(gt_text)])
+            # pred_text = asr.transcribe([audio_file])[0]
+            # wer = word_error_rate(hypotheses=[normalize(pred_text)], references=[normalize(gt_text)])
 
             result_df.append({
                 'source_dataset': source_dataset,
@@ -102,4 +105,4 @@ if __name__ == "__main__":
         result_df = pd.read_csv(result_path)
 
     print("Overall MOS: {:.3f} ± {:.3f}".format(result_df['mos_pred'].mean(), result_df['mos_pred'].std()))
-    print("Overall WER: {:.3f} ± {:.3f}".format(result_df['wer'].mean(), result_df['wer'].std()))
+    # print("Overall WER: {:.3f} ± {:.3f}".format(result_df['wer'].mean(), result_df['wer'].std()))

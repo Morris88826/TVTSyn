@@ -10,6 +10,7 @@ from fastdtw import fastdtw
 from scipy.spatial.distance import cosine
 from scipy.io import wavfile
 from IPython import display as disp
+import soundfile as sf
 from pathlib import Path
 from tqdm import tqdm
 from src.modules import ResynthesisWithQuantAndTVTimbreModule, SpeakerModule
@@ -23,6 +24,13 @@ from denoiser.dsp import convert_audio
 MAX_WAV_VALUE = 32768.0
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+def get_wav_duration(path: Path) -> float:
+    """
+    Return duration in seconds without loading audio into memory.
+    """
+    with sf.SoundFile(path) as f:
+        return len(f) / f.samplerate
 
 
 def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cuda'):
@@ -188,7 +196,7 @@ def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_
 def get_synthesizer_model(model_name, device='cuda'):
     if model_name == "DarkStream-quant-TVT":
         resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
-            "../ckpts/resynthesis_quant_and_tvtimbre.ckpt",
+            "../ckpts/resynthesis_quant_and_tvtimbre_ft.ckpt",
             encoder_path=None,
             map_location=device
         )
@@ -356,13 +364,29 @@ if __name__ == "__main__":
         data_dir_indictts = "/data/waris/data/IndicTTS"
         indictts_dir = Path(data_dir_indictts)
         if indictts_dir.exists():
-            indic_tts_files = list(indictts_dir.rglob("**/english/wav/*.wav"))
+            indic_tts_files = sorted(list(indictts_dir.rglob("**/english/wav/*.wav")))
             for nns_file in indic_tts_files:
-                ns_file_path = nns_file.parent.parent.parent / "native_tc/wav" / nns_file.name
+                ns_file_path = nns_file.parent.parent.parent / "native_f5tts/wav" / nns_file.name
                 if ns_file_path.exists():
                     pairs.append((nns_file, ns_file_path))
 
             print(f"Found {len(pairs)} non-native to native speaker pairs in IndicTTS dataset")
+    elif corpus_name == "nptel":
+        data_dir_nptel = "/data/waris/data/nptel/data"
+        nptel_dir = Path(data_dir_nptel)
+        if nptel_dir.exists():
+            nptel_files = sorted(list(nptel_dir.rglob("indian/**/wav/*.wav")))
+            print(f"Total non-native files found: {len(nptel_files)}")
+            for nns_file in tqdm(nptel_files, desc="Processing NPTEL files"):
+                #only consider files under 30sec
+                wav_dur = get_wav_duration(nns_file)
+                if wav_dur > 30.0 or wav_dur < 1.2:
+                    continue
+                ns_file_path = nptel_dir / "american" / nns_file.relative_to(nptel_dir / "indian")
+                if ns_file_path.exists():
+                    pairs.append((nns_file, ns_file_path))
+
+            print(f"Found {len(pairs)} non-native to native speaker pairs in NPTEL dataset")
     else:
         raise ValueError("Unknown corpus name: {}".format(corpus_name))
 

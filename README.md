@@ -56,11 +56,12 @@ The model is trained in 2 steps:
 | Model type                                    |  Link    |
 |-----------------------------------------------|----------|
 | Content Encoder  (From Step 1)                | [GDrive](https://drive.google.com/file/d/1_RAPZyWNkHdWuIVcKuukYrNczPG-PwXu/view?usp=sharing) |
-| Content Encoder + Synthesizer (After Step 2)  | [GDrive](https://drive.google.com/file/d/1QGr8gjCR8g25AMXnyNWPWzXM56uKNet2/view?usp=sharing) |
+| Content Encoder + Synthesizer (After Step 2)  | [GDrive](https://drive.google.com/file/d/120UQ0cdhZnYaQUxQX6hGLL2FN4rShPkA/view?usp=sharing) |
 
 
 ### Inference
 
 1. See [inference.ipynb](notebooks/inference.ipynb)
+
 
 

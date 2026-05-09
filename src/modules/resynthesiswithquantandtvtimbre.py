@@ -155,7 +155,16 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         content = self.get_features(y)
         
         # content = self.projector(content_logits.transpose(1, 2)).transpose(1, 2)
-        y_g_hat, variances = self.decoder(content, embeds, pitch=pitch, energy=energy, tokens=tokens)
+        
+        ## Add little noise to the content features for better generalization (similar to VQ-VAE2 paper)
+        # noise = torch.randn_like(content) * 0.01
+        # content = content + noise
+        if self.training:
+            content_std = content.detach().std(dim=(1, 2), keepdim=True).clamp_min(1e-5)
+            noise = torch.randn_like(content) * content_std * 0.02
+            content = content + noise
+        
+        y_g_hat, variances = self.decoder(content.detach(), embeds, pitch=pitch, energy=energy, tokens=tokens)
         avg_pitch, predict_pitch, avg_energy, predict_energy = variances
 
         assert y_g_hat.shape == y.shape, f"Mismatch in vocoder output shape - {y_g_hat.shape} != {y.shape}"
@@ -220,13 +229,13 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         self.train_adv_d_loss(output["adv/d_loss"])
 
 
-        self.log("train/stft/loss", self.train_stft_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log("train/mel/loss", output["mel_loss"], on_step=True, on_epoch=True, batch_size=batch_size)
-        self.log("train/waveform/loss", self.train_waveform_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log("train/adv/gen_loss", self.train_adv_gen_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log("train/adv/feat_loss", self.train_adv_feat_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log("train/total_gen_loss", output["loss"], on_step=True, on_epoch=True, batch_size=batch_size)
-        self.log("train/adv/d_loss", self.train_adv_d_loss, on_step=False, on_epoch=True, batch_size=batch_size)
+        self.log("train/stft/loss", self.train_stft_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("train/mel/loss", output["mel_loss"], on_step=True, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("train/waveform/loss", self.train_waveform_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("train/adv/gen_loss", self.train_adv_gen_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("train/adv/feat_loss", self.train_adv_feat_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("train/total_gen_loss", output["loss"], on_step=True, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("train/adv/d_loss", self.train_adv_d_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
         return output
 
 
@@ -250,9 +259,9 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         self.val_mel_loss(mel_loss)
         self.val_waveform_loss(waveform_loss)
 
-        self.log("val/stft/loss", self.val_stft_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log("val/mel/loss", self.val_mel_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log("val/waveform/loss", self.val_waveform_loss, on_step=False, on_epoch=True, batch_size=batch_size)
+        self.log("val/stft/loss", self.val_stft_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("val/mel/loss", self.val_mel_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
+        self.log("val/waveform/loss", self.val_waveform_loss, on_step=False, on_epoch=True, batch_size=batch_size, sync_dist=True)
 
         return {
             "loss": loss,
@@ -264,7 +273,7 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
     def on_validation_epoch_end(self):
         mel_loss = self.val_mel_loss.compute()  # get current val acc
         self.val_loss_best(mel_loss)  # update best so far val acc
-        self.log("val/loss_best", self.val_loss_best.compute())
+        self.log("val/loss_best", self.val_loss_best.compute(), sync_dist=True)  # log best so far val acc
 
     def test_step(self, batch: Any, batch_idx: int):
         recons, signal, _, _ = self.model_step(batch)
@@ -272,7 +281,7 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         loss = self.mel_loss(recons, signal)
         # update and log metrics
         self.test_loss(loss)
-        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True)
+        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, sync_dist=True)
         return {"loss": loss}
 
     def on_test_epoch_end(self):

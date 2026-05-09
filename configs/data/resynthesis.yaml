@@ -1,7 +1,9 @@
 data:
   class_path: data_modules.ResynthesisDataModule
   init_args:
-    data_dir: data/speakers
+    data_dir: null
+    data_indictts: null
+    data_file: /mnt/data1/waris/PSI-TAMU/TVTSyn/data/metadata/ml_macc_wav_list.txt
     batch_size: 16
     num_workers: 8
     pin_memory: true

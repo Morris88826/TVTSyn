@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 from librosa.util import normalize
+from tqdm import tqdm
 
 import pytorch_lightning as pl
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
@@ -155,7 +156,9 @@ class ResynthesisDataModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "data",
+        data_dir: str = None,
+        data_indictts: str = None,
+        data_file: str = None,
         batch_size: int = 16,
         num_workers: int = 4,
         pin_memory: bool = True,
@@ -186,19 +189,62 @@ class ResynthesisDataModule(pl.LightningDataModule):
         """Download data if needed.
         Do not use it to assign state (self.x = y).
         """
-        training_files = list(Path(self.hparams.data_dir).rglob("*.wav"))
+        # training_files = list(Path(self.hparams.data_dir).rglob("*.wav"))
 
-        self.training_files = training_files
-        # self.validation_files = training_files
-        # self.test_files = training_files
-        training_files, self.validation_files, _, _ = train_test_split(training_files, training_files, test_size=0.01, random_state=42)
-        self.training_files, self.test_files, _, _ = train_test_split(training_files, training_files, test_size=0.001, random_state=42)
+        # self.training_files = training_files
+        # # self.validation_files = training_files
+        # # self.test_files = training_files
+        # training_files, self.validation_files, _, _ = train_test_split(training_files, training_files, test_size=0.01, random_state=42)
+        # self.training_files, self.test_files, _, _ = train_test_split(training_files, training_files, test_size=0.001, random_state=42)
+        pass
 
     def setup(self, stage: str = None):
         """Load data. Set variables: `self.data_train`, `self.data_val`, `self.data_test`.
         This method is called by lightning with both `trainer.fit()` and `trainer.test()`, so be
         careful not to execute things like random split twice!
         """
+        assert self.hparams.data_dir is not None or \
+            self.hparams.data_indictts is not None or \
+                self.hparams.data_file is not None, "Either data_dir, data_indictts or data_file must be provided"
+                
+        if self.hparams.data_dir is not None:
+            training_files = list(Path(self.hparams.data_dir).rglob("*.wav"))
+        else:
+            training_files = []
+
+        if self.hparams.data_indictts is not None:
+            indic_tts_files = list(Path(self.hparams.data_indictts).rglob("**/english/wav/*.wav"))
+            training_files.extend(indic_tts_files)
+            
+        if self.hparams.data_file is not None:
+            with open(self.hparams.data_file, 'r') as f:
+                data_files = f.readlines()
+            data_files = [Path(x.strip()) for x in data_files]
+            training_files.extend(data_files)
+            
+        filtered_training_files = []
+        for f in tqdm(training_files, desc="Filtering training files"):
+            pitch_fpath = f.parent.parent / "pitch" / f"{f.stem}.pit.npy"
+            energy_fpath = f.parent.parent / "energy" / f"{f.stem}.eng.npy"
+            spkr_embed_fpath = f.parent.parent / "spkr" / f"{f.stem}.spk.npy"
+            code_fpath = f.parent.parent / "code" / f"{f.stem}.km"
+            if pitch_fpath.exists() and energy_fpath.exists() and spkr_embed_fpath.exists() and code_fpath.exists():
+                filtered_training_files.append(f)
+            
+        print(f"Total files before filtering: {len(training_files)}")
+        print(f"Total files after filtering: {len(filtered_training_files)}")
+
+        self.training_files = filtered_training_files
+        # self.validation_files = training_files
+        # self.test_files = training_files
+        self.training_files, self.validation_files, _, _ = train_test_split(self.training_files, self.training_files, test_size=0.001, random_state=42)
+        self.training_files, self.test_files, _, _ = train_test_split(self.training_files, self.training_files, test_size=0.001, random_state=42)
+        
+        print(f"Total training files: {len(self.training_files)}")
+        print(f"Total validation files: {len(self.validation_files)}")
+        print(f"Total test files: {len(self.test_files)}")
+        
+        
         # load and split datasets only if not loaded already
         if not self.data_train and not self.data_val and not self.data_test:
             self.data_train = ResynthesisDataset(

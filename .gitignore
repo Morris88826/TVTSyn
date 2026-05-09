@@ -181,3 +181,6 @@ dummy*
 results*
 ICLR26Results/
 ICLR26Results_quantitative/
+data/metadata/
+evaluation/
+sample_wav/

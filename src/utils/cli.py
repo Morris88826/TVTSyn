@@ -126,6 +126,16 @@ class CustomLightningCLI(LightningCLI):
             default=None,
             help="If set, load model weights from this checkpoint path (but do NOT load optimizer state)."
         )
+        parser.add_argument(
+            "--exclude_load_modules",
+            type=str,
+            nargs="*",
+            default=[],
+            help=(
+                "List of top-level module names to EXCLUDE when loading weights. "
+                "Example: --exclude_load_modules encoder discriminator"
+            ),
+        )
 
     def before_instantiate_classes(self) -> None:
         if self.config[self.subcommand].get("ignore_warnings"):
@@ -142,44 +152,57 @@ class CustomLightningCLI(LightningCLI):
         We use it to load just the model‐weights if --load_weights_path was provided.
         """
         load_path = self.config.fit.get("load_weights_path", None)
-        if load_path:
-            ckpt = torch.load(load_path, map_location="cpu")
-            sd = ckpt.get("state_dict", ckpt)  # tolerate raw state_dict too
+        exclude_modules = self.config.fit.get("exclude_load_modules", [])
+        
+        if not load_path:
+            return
+    
+        ckpt = torch.load(load_path, map_location="cpu")
+        sd = ckpt.get("state_dict", ckpt)  # tolerate raw state_dict too
 
-            model_sd = self.model.state_dict()
+        model_sd = self.model.state_dict()
 
-            filtered_sd = {}
-            mismatched = []
+        filtered_sd = {}
+        mismatched = []
+        excluded = []
 
-            for k, v in sd.items():
-                if k not in model_sd:
-                    # let load_state_dict report "unexpected" later
-                    filtered_sd[k] = v
-                    continue
+        exclude_prefixes = tuple(f"{m}." for m in exclude_modules)
 
-                # Check for shape mismatch
-                if model_sd[k].shape != v.shape:
-                    mismatched.append(
-                        (k, tuple(model_sd[k].shape), tuple(v.shape))
-                    )
-                    # skip this key
-                    continue
+        for k, v in sd.items():
+            # 1) Exclude requested modules
+            if exclude_prefixes and k.startswith(exclude_prefixes):
+                excluded.append(k)
+                continue
 
+            # 2) Unexpected key
+            if k not in model_sd:
                 filtered_sd[k] = v
+                continue
 
+            # 3) Shape mismatch
+            if model_sd[k].shape != v.shape:
+                mismatched.append(
+                    (k, tuple(model_sd[k].shape), tuple(v.shape))
+                )
+                continue
 
-            # missing, unexpected = self.model.load_state_dict(sd, strict=False)
-            missing, unexpected = self.model.load_state_dict(filtered_sd, strict=False)
+            filtered_sd[k] = v
 
-            print(f"Loaded model weights from {load_path}.")
-            if len(missing) > 0:
-                print(f"  missing keys: {missing}")
-            if len(unexpected) > 0:
-                print(f"  unexpected keys: {unexpected}")
-            if len(mismatched) > 0:
-                print("  mismatched keys (skipped due to shape):")
-                for name, model_shape, ckpt_shape in mismatched:
-                    print(f"    {name}: model {model_shape} vs ckpt {ckpt_shape}")
+        # missing, unexpected = self.model.load_state_dict(sd, strict=False)
+        missing, unexpected = self.model.load_state_dict(filtered_sd, strict=False)
+
+        print(f"Loaded model weights from {load_path}.")
+        if exclude_modules:
+            print(f"  excluded modules: {exclude_modules}")
+            print(f"  excluded keys: {len(excluded)}")
+        if len(missing) > 0:
+            print(f"  missing keys: {missing}")
+        if len(unexpected) > 0:
+            print(f"  unexpected keys: {unexpected}")
+        if len(mismatched) > 0:
+            print("  mismatched keys (skipped due to shape):")
+            for name, model_shape, ckpt_shape in mismatched:
+                print(f"    {name}: model {model_shape} vs ckpt {ckpt_shape}")
 
 
     def before_fit(self) -> None:

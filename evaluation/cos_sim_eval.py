@@ -12,7 +12,7 @@ from src.modules import SpeakerModule
 
 
 speaker_encoder = SpeakerModule(device="cuda" if torch.cuda.is_available() else "cpu")
-model_name = "DarkStream-quant-TVT-ns"
+model_name = "DarkStream-quant64-TVT-mel-voc-ns"
 
 data_dir = {
     # source datasets

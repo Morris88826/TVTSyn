@@ -6,6 +6,7 @@ import librosa
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 import pytorch_lightning as pl
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
@@ -16,6 +17,22 @@ def load_audio(full_path, sampling_rate=16000):
     return data, sampling_rate
 
 
+def mode_filter_codes(tokens, kernel_size):
+    if kernel_size <= 1 or tokens.shape[-1] == 0:
+        return tokens
+    if kernel_size % 2 == 0:
+        raise ValueError("code_mode_filter_size must be odd")
+
+    pad = kernel_size // 2
+    padded = np.pad(tokens, (pad, pad), mode="edge")
+    windows = np.lib.stride_tricks.sliding_window_view(padded, kernel_size)
+    filtered = []
+    for window in windows:
+        values, counts = np.unique(window, return_counts=True)
+        filtered.append(values[np.argmax(counts)])
+    return np.asarray(filtered, dtype=tokens.dtype)
+
+
 class PasrDataset(Dataset):
     def __init__(
         self, 
@@ -23,7 +40,9 @@ class PasrDataset(Dataset):
         segment_size,
         code_hop_size, 
         sampling_rate, 
-        split=True
+        split=True,
+        code_mode_filter: bool = False,
+        code_mode_filter_size: int = 5,
     ):
 
         self.audio_files = training_files
@@ -31,6 +50,10 @@ class PasrDataset(Dataset):
         self.code_hop_size = code_hop_size
         self.sampling_rate = sampling_rate
         self.split = split
+        if code_mode_filter and code_mode_filter_size % 2 == 0:
+            raise ValueError("code_mode_filter_size must be odd")
+        self.code_mode_filter = code_mode_filter
+        self.code_mode_filter_size = code_mode_filter_size
 
         random.seed(1234)
 
@@ -62,6 +85,8 @@ class PasrDataset(Dataset):
 
         tokens = open(tokens, 'r').readlines()[0].strip()
         tokens = np.array([int(i) for i in tokens.split(" ")])
+        if self.code_mode_filter:
+            tokens = mode_filter_codes(tokens, self.code_mode_filter_size)
 
         audio, sampling_rate = load_audio(wav_fpath, self.sampling_rate)
         # if sampling_rate != self.sampling_rate:
@@ -125,7 +150,9 @@ class PasrDataModule(pl.LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "data",
+        data_dir: str = None,
+        data_indictts: str = None,
+        data_file: str | list = None,
         batch_size: int = 16,
         num_workers: int = 4,
         pin_memory: bool = True,
@@ -133,6 +160,8 @@ class PasrDataModule(pl.LightningDataModule):
         code_hop_size: int = 320,
         sampling_rate: int = 16000,
         split: bool = True,
+        code_mode_filter: bool = False,
+        code_mode_filter_size: int = 5,
     ):
         super().__init__()
 
@@ -155,19 +184,66 @@ class PasrDataModule(pl.LightningDataModule):
         """Download data if needed.
         Do not use it to assign state (self.x = y).
         """
-        training_files = list(Path(self.hparams.data_dir).rglob("*.wav"))
-        self.training_files = training_files
-        # self.validation_files = training_files
-        # self.test_files = training_files
+        # training_files = list(Path(self.hparams.data_dir).rglob("*.wav"))
 
-        training_files, self.validation_files, _, _ = train_test_split(training_files, training_files, test_size=0.01, random_state=42)
-        self.training_files, self.test_files, _, _ = train_test_split(training_files, training_files, test_size=0.001, random_state=42)
+        # self.training_files = training_files
+        # # self.validation_files = training_files
+        # # self.test_files = training_files
+        # training_files, self.validation_files, _, _ = train_test_split(training_files, training_files, test_size=0.01, random_state=42)
+        # self.training_files, self.test_files, _, _ = train_test_split(training_files, training_files, test_size=0.001, random_state=42)
+        pass
 
     def setup(self, stage: str = None):
         """Load data. Set variables: `self.data_train`, `self.data_val`, `self.data_test`.
         This method is called by lightning with both `trainer.fit()` and `trainer.test()`, so be
         careful not to execute things like random split twice!
         """
+        assert self.hparams.data_dir is not None or \
+            self.hparams.data_indictts is not None or \
+                self.hparams.data_file is not None, "Either data_dir, data_indictts or data_file must be provided"
+                
+        if self.hparams.data_dir is not None:
+            training_files = list(Path(self.hparams.data_dir).rglob("*.wav"))
+        else:
+            training_files = []
+
+        if self.hparams.data_indictts is not None:
+            indic_tts_files = list(Path(self.hparams.data_indictts).rglob("**/english/wav/*.wav"))
+            training_files.extend(indic_tts_files)
+            
+        if self.hparams.data_file is not None:
+            if isinstance(self.hparams.data_file, str):
+                self.hparams.data_file = [self.hparams.data_file]
+            
+            for file_path in self.hparams.data_file:
+                with open(file_path, 'r') as f:
+                    data_files = f.readlines()
+                data_files = [Path(x.strip()) for x in data_files]
+                training_files.extend(data_files)
+            
+        filtered_training_files = []
+        for f in tqdm(training_files, desc="Filtering training files"):
+            pitch_fpath = f.parent.parent / "pitch" / f"{f.stem}.pit.npy"
+            energy_fpath = f.parent.parent / "energy" / f"{f.stem}.eng.npy"
+            spkr_embed_fpath = f.parent.parent / "spkr" / f"{f.stem}.spk.npy"
+            code_fpath = f.parent.parent / "code" / f"{f.stem}.km"
+            if pitch_fpath.exists() and energy_fpath.exists() and spkr_embed_fpath.exists() and code_fpath.exists():
+                filtered_training_files.append(f)
+            
+        print(f"Total files before filtering: {len(training_files)}")
+        print(f"Total files after filtering: {len(filtered_training_files)}")
+
+        self.training_files = filtered_training_files
+        # self.validation_files = training_files
+        # self.test_files = training_files
+        self.training_files, self.validation_files, _, _ = train_test_split(self.training_files, self.training_files, test_size=0.001, random_state=42)
+        self.training_files, self.test_files, _, _ = train_test_split(self.training_files, self.training_files, test_size=0.001, random_state=42)
+        
+        print(f"Total training files: {len(self.training_files)}")
+        print(f"Total validation files: {len(self.validation_files)}")
+        print(f"Total test files: {len(self.test_files)}")
+        
+        
         # load and split datasets only if not loaded already
         if not self.data_train and not self.data_val and not self.data_test:
             self.data_train = PasrDataset(
@@ -176,6 +252,8 @@ class PasrDataModule(pl.LightningDataModule):
                 code_hop_size=self.hparams.code_hop_size,
                 sampling_rate=self.hparams.sampling_rate,
                 split=True,
+                code_mode_filter=self.hparams.code_mode_filter,
+                code_mode_filter_size=self.hparams.code_mode_filter_size,
             )
             self.data_val = PasrDataset(
                 training_files=self.validation_files,
@@ -183,6 +261,8 @@ class PasrDataModule(pl.LightningDataModule):
                 code_hop_size=self.hparams.code_hop_size,
                 sampling_rate=self.hparams.sampling_rate,
                 split=True,
+                code_mode_filter=self.hparams.code_mode_filter,
+                code_mode_filter_size=self.hparams.code_mode_filter_size,
             )
             self.data_test = PasrDataset(
                 training_files=self.test_files,
@@ -190,6 +270,8 @@ class PasrDataModule(pl.LightningDataModule):
                 code_hop_size=self.hparams.code_hop_size,
                 sampling_rate=self.hparams.sampling_rate,
                 split=False,
+                code_mode_filter=self.hparams.code_mode_filter,
+                code_mode_filter_size=self.hparams.code_mode_filter_size,
             )
 
     def train_dataloader(self):

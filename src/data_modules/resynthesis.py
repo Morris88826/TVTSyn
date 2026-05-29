@@ -158,7 +158,7 @@ class ResynthesisDataModule(pl.LightningDataModule):
         self,
         data_dir: str = None,
         data_indictts: str = None,
-        data_file: str = None,
+        data_file: str | list = None,
         batch_size: int = 16,
         num_workers: int = 4,
         pin_memory: bool = True,
@@ -217,10 +217,14 @@ class ResynthesisDataModule(pl.LightningDataModule):
             training_files.extend(indic_tts_files)
             
         if self.hparams.data_file is not None:
-            with open(self.hparams.data_file, 'r') as f:
-                data_files = f.readlines()
-            data_files = [Path(x.strip()) for x in data_files]
-            training_files.extend(data_files)
+            if isinstance(self.hparams.data_file, str):
+                self.hparams.data_file = [self.hparams.data_file]
+            
+            for file_path in self.hparams.data_file:
+                with open(file_path, 'r') as f:
+                    data_files = f.readlines()
+                data_files = [Path(x.strip()) for x in data_files]
+                training_files.extend(data_files)
             
         filtered_training_files = []
         for f in tqdm(training_files, desc="Filtering training files"):

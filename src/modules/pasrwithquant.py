@@ -4,6 +4,7 @@ from dataclasses import asdict
 
 import pytorch_lightning as pl
 import torch
+import torch.nn.functional as F
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
 
@@ -12,7 +13,21 @@ from src.models import MimiEncoderWithQuantModel
 from src.components.code_predictor import CodePredictor
 from src.components.quantizer.factorized_vector_quantize import FactorizedVectorQuantize
 from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs
-# from src.components.losses import FocalLoss
+
+
+class FocalLoss(torch.nn.Module):
+    def __init__(self, gamma: float = 2.0, alpha: float | None = None):
+        super().__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor):
+        ce_loss = F.cross_entropy(logits, targets, reduction="none")
+        pt = torch.exp(-ce_loss)
+        focal_loss = (1.0 - pt).pow(self.gamma) * ce_loss
+        if self.alpha is not None:
+            focal_loss = self.alpha * focal_loss
+        return focal_loss.mean()
 
 
 class PasrWithQuantModule(pl.LightningModule):
@@ -31,6 +46,9 @@ class PasrWithQuantModule(pl.LightningModule):
         frame_rate: int = 50,
         num_codes: int = 200,
         encoder_dim: int = 512,
+        loss_type: str = "cross_entropy",
+        focal_gamma: float = 2.0,
+        focal_alpha: float | None = None,
     ):
         super().__init__()
 
@@ -59,7 +77,16 @@ class PasrWithQuantModule(pl.LightningModule):
         )
 
         # loss function
-        self.criterion = torch.nn.CrossEntropyLoss() #FocalLoss() #
+        loss_type = loss_type.lower()
+        if loss_type in ("cross_entropy", "ce"):
+            self.criterion = torch.nn.CrossEntropyLoss()
+        elif loss_type == "focal":
+            self.criterion = FocalLoss(
+                gamma=self.hparams.focal_gamma,
+                alpha=self.hparams.focal_alpha,
+            )
+        else:
+            raise ValueError(f"Unsupported loss_type: {loss_type}")
 
         # metric objects for calculating and averaging accuracy across batches
         metric = Accuracy(task="multiclass", num_classes=self.hparams.num_codes)

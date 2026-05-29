@@ -1,5 +1,5 @@
 # Adapted from: https://github.com/ashleve/lightning-hydra-template/blob/main/src/models/mnist_module.py
-from typing import Any
+from typing import Any, Optional
 from dataclasses import asdict
 
 import pytorch_lightning as pl
@@ -36,7 +36,9 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         decoder_seanet_args: DecSeanetNCArgs = DecSeanetNCArgs(),
         frame_synthesizer_args: FrameSynthesizerArgs = FrameSynthesizerArgs(),
         tvtimbre_args: TVTimbreArgs = TVTimbreArgs(),
+        use_pitch_energy_predictor: bool = True,
         lambdas: Lambdas = Lambdas(),
+        add_spec_augment_content: bool = False,
         learning_rate: float = 0.0001,
         lr_betas: list = [0.8, 0.99],
         lr_sch_gamma: float = 0.999996,
@@ -66,9 +68,13 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
             self.encoder = PasrWithQuantModule.load_from_checkpoint(self.hparams.encoder_path, map_location=self.device)
             self.encoder.freeze()
 
+        self.use_pitch_energy_predictor = use_pitch_energy_predictor
         ## Init decoder
         decoder_transformer = FrameSynthesizerWOExciter(
-            device=self.device, **asdict(frame_synthesizer_args), tvtimbre_args=asdict(tvtimbre_args)
+            device=self.device, 
+            **asdict(frame_synthesizer_args), 
+            tvtimbre_args=asdict(tvtimbre_args),
+            use_pitch_energy_predictor=use_pitch_energy_predictor,
         )
         decoder = SEANetDecoder(**asdict(decoder_seanet_args))
 
@@ -105,6 +111,8 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
             self.discriminator.load_state_dict(discriminator_state, strict=False)
             print(f"Loaded pretrained decoder and discriminator from {self.hparams.decoder_path}")
 
+        self.add_spec_augment_content = add_spec_augment_content
+
         # loss function
         self.lambdas = asdict(lambdas)
         self.waveform_loss = L1Loss()
@@ -138,6 +146,108 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         sch_g = torch.optim.lr_scheduler.ExponentialLR(opt_g, gamma=self.hparams.lr_sch_gamma)
         sch_d = torch.optim.lr_scheduler.ExponentialLR(opt_d, gamma=self.hparams.lr_sch_gamma)
         return [opt_g, opt_d], [sch_g, sch_d]
+    
+    def spec_augment_content(
+        self,
+        content: torch.Tensor,
+        *,
+        time_mask_prob: float = 0.5,
+        feature_mask_prob: float = 0.5,
+        num_time_masks: int = 2,
+        num_feature_masks: int = 2,
+        max_time_mask_frac: float = 0.04,
+        max_feature_mask_frac: float = 0.04,
+        replace_with: str = "mean",
+        p: float = 0.5,
+    ) -> torch.Tensor:
+        """
+        SpecAugment-style masking for continuous content features.
+
+        Args:
+            content:
+                Tensor of shape [B, C, T].
+            time_mask_prob:
+                Probability of applying each time mask per sample.
+            feature_mask_prob:
+                Probability of applying each feature/channel mask per sample.
+            num_time_masks:
+                Number of time masks attempted per sample.
+            num_feature_masks:
+                Number of feature/channel masks attempted per sample.
+            max_time_mask_frac:
+                Maximum width of each time mask as a fraction of T.
+                Example: 0.08 means each mask can cover up to 8% of frames.
+            max_feature_mask_frac:
+                Maximum width of each feature mask as a fraction of C.
+            replace_with:
+                "zero"  -> replace masked region with 0.
+                "mean"  -> replace masked region with per-sample content mean.
+                "noise" -> replace masked region with small Gaussian noise around mean.
+            p:
+                Global probability of applying augmentation.
+
+        Returns:
+            Augmented content tensor of shape [B, C, T].
+        """
+
+        if content.ndim != 3:
+            raise ValueError(f"Expected content shape [B, C, T], got {content.shape}")
+
+        if p <= 0.0 or torch.rand((), device=content.device).item() > p:
+            return content
+
+        B, C, T = content.shape
+        augmented = content.clone()
+
+        max_time_width = max(1, int(T * max_time_mask_frac))
+        max_feature_width = max(1, int(C * max_feature_mask_frac))
+
+        # Per-sample mean/std used for stable replacement.
+        content_mean = content.detach().mean(dim=(1, 2), keepdim=True)
+        content_std = content.detach().std(dim=(1, 2), keepdim=True).clamp_min(1e-5)
+
+        def replacement_value(b: int, shape: tuple[int, ...]) -> torch.Tensor:
+            if replace_with == "zero":
+                return torch.zeros(shape, device=content.device, dtype=content.dtype)
+            elif replace_with == "mean":
+                return content_mean[b].expand(shape)
+            elif replace_with == "noise":
+                return content_mean[b].expand(shape) + 0.01 * content_std[b].expand(shape) * torch.randn(
+                    shape, device=content.device, dtype=content.dtype
+                )
+            else:
+                raise ValueError(f"Unsupported replace_with={replace_with}. Use 'zero', 'mean', or 'noise'.")
+
+        for b in range(B):
+            # Time masking: mask consecutive frames across all channels.
+            for _ in range(num_time_masks):
+                if torch.rand((), device=content.device).item() > time_mask_prob:
+                    continue
+
+                width = int(torch.randint(1, max_time_width + 1, (), device=content.device).item())
+                if width >= T:
+                    start = 0
+                    width = T
+                else:
+                    start = int(torch.randint(0, T - width + 1, (), device=content.device).item())
+
+                augmented[b, :, start : start + width] = replacement_value(b, (C, width))
+
+            # Feature masking: mask consecutive channels across all time frames.
+            for _ in range(num_feature_masks):
+                if torch.rand((), device=content.device).item() > feature_mask_prob:
+                    continue
+
+                width = int(torch.randint(1, max_feature_width + 1, (), device=content.device).item())
+                if width >= C:
+                    start = 0
+                    width = C
+                else:
+                    start = int(torch.randint(0, C - width + 1, (), device=content.device).item())
+
+                augmented[b, start : start + width, :] = replacement_value(b, (width, T))
+
+        return augmented
 
 
     def forward(self, x: torch.Tensor, spkr_embed: torch.Tensor, pitch_rate: float = 1.0, energy_rate: float = 1.0):
@@ -163,7 +273,14 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
             content_std = content.detach().std(dim=(1, 2), keepdim=True).clamp_min(1e-5)
             noise = torch.randn_like(content) * content_std * 0.02
             content = content + noise
+            
+            if self.add_spec_augment_content:
+                content = self.spec_augment_content(content)
         
+        # if not self.use_pitch_energy_predictor:
+        #     pitch = None
+        #     energy = None
+        #     tokens = None
         y_g_hat, variances = self.decoder(content.detach(), embeds, pitch=pitch, energy=energy, tokens=tokens)
         avg_pitch, predict_pitch, avg_energy, predict_energy = variances
 
@@ -211,6 +328,8 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
             output["adv_gen_loss"],
             output["adv_feat_loss"],
         ) = self.gan_loss.generator_loss(recons, signal)
+        # output["ped_loss"] = torch.tensor(0.0, device=recons.device)
+        # if self.use_pitch_energy_predictor:
         output["ped_loss"] = self.loss_ped(*ped)["total_loss"]
         gen_loss = sum([v * output[k] for k, v in self.lambdas.items() if k in output])
         output["loss"] = gen_loss

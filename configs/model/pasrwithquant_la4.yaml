@@ -47,6 +47,9 @@ model:
     frame_rate: 50
     num_codes: 200
     encoder_dim: 512
+    loss_type: cross_entropy
+    focal_gamma: 2.0
+    focal_alpha: null
 # https://pytorch.org/docs/stable/optim.html
 optimizer:
   class_path: AdamW
@@ -71,9 +74,12 @@ trainer:
   # Train, Validate, Test and Predict
   # Device https://lightning.ai/docs/pytorch/stable/common/trainer.html#accelerator
   accelerator: gpu # "cpu", "gpu", "tpu", "ipu", "auto"
-  devices: "0," # "2," for device id 2
+  devices: "0,1,2,3" # "2," for device id 2
   num_nodes: 1 # https://lightning.ai/docs/pytorch/stable/common/trainer.html#num-nodes
-  max_epochs: 100
+  max_epochs: 20
+  # strategy: ddp_find_unused_parameters_true
+  val_check_interval: 0.25
+  precision: bf16-mixed
   callbacks:
     # https://lightning.ai/docs/pytorch/latest/api/lightning.pytorch.callbacks.ModelCheckpoint.html#lightning.pytorch.callbacks.ModelCheckpoint
     - class_path: ModelCheckpoint

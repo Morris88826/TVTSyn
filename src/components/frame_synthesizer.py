@@ -265,6 +265,7 @@ class FrameSynthesizerWOExciter(StreamingContainer):
         positional_embedding: str = "rope",
         dim_feedforward: int = 2048,
         use_tv_timbre: bool = True,
+        use_pitch_energy_predictor: bool = True,
         device=None,
         dtype=None,
         tvtimbre_args: dict = {},
@@ -274,6 +275,7 @@ class FrameSynthesizerWOExciter(StreamingContainer):
 
         self.use_tv_timbre = use_tv_timbre
         self.timbre_cond_dim = timbre_cond_dim
+        self.use_pitch_energy_predictor = use_pitch_energy_predictor
 
         if use_tv_timbre:
             self.timbre_encoder = StreamingGlobalOnlyTVTimbre(
@@ -407,21 +409,23 @@ class FrameSynthesizerWOExciter(StreamingContainer):
         z1 = self.b1_transformer(x, *args, **kwargs)
         z1 = self.b1_ln(z1.transpose(1, 2), timbre)
 
+        avg_pitch, predicted_pitch, avg_energy, predicted_energy = None, None, None, None
+        # if self.use_pitch_energy_predictor:
         # Pitch/Energy Prediction
         avg_pitch, predicted_pitch, avg_energy, predicted_energy = self.pitch_energy_predictor(
             z1, pitch, energy, tokens, pitch_rate, energy_rate
         )
+        if self.use_pitch_energy_predictor:
+            if pitch is not None and energy is not None:
+                pitch = self.pitchEmbed(avg_pitch)
+                energy = self.energyEmbed(avg_energy)
+            else:
+                pitch = self.pitchEmbed(predicted_pitch)
+                energy = self.energyEmbed(predicted_energy)
 
-        if pitch is not None and energy is not None:
-            pitch = self.pitchEmbed(avg_pitch)
-            energy = self.energyEmbed(avg_energy)
-        else:
-            pitch = self.pitchEmbed(predicted_pitch)
-            energy = self.energyEmbed(predicted_energy)
-
-        # Add pitch and energy to the input
-        z1 = self.pitch_add(z1, pitch)
-        z1 = self.energy_add(z1, energy)
+            # Add pitch and energy to the input
+            z1 = self.pitch_add(z1, pitch)
+            z1 = self.energy_add(z1, energy)
 
 
         z2 = self.b2_transformer(z1.transpose(1, 2), *args, **kwargs)

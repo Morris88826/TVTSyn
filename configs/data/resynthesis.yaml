@@ -3,7 +3,7 @@ data:
   init_args:
     data_dir: null
     data_indictts: null
-    data_file: /mnt/data1/waris/PSI-TAMU/TVTSyn/data/metadata/ml_macc_wav_list.txt
+    data_file: ['/mnt/data1/waris/PSI-TAMU/TVTSyn/data/metadata/ml_macc_wav_list.txt', '/mnt/nvme-data1/waris/datasets/GLOBE/metadata/train_files.txt', '/mnt/nvme-data1/waris/datasets/NaturalVoices/metadata/wav_list.txt']
     batch_size: 16
     num_workers: 8
     pin_memory: true

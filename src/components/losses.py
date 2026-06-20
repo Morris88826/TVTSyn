@@ -1,3 +1,4 @@
+import contextlib
 import typing
 from typing import List
 
@@ -6,7 +7,6 @@ import torch.nn.functional as F
 from audiotools import AudioSignal
 from audiotools import STFTParams
 from torch import nn
-from speechbrain.lobes.models.huggingface_transformers.hubert import HuBERT
 # from src.models import SpeakerEncoder
 
 
@@ -437,25 +437,126 @@ class LossPED(nn.Module):
 
 
 class HuBERTLoss(nn.Module):
-    """Loss Computation for HuBERT model using MSELoss"""
+    """Frozen, fairseq-free HuBERT perceptual feature loss.
 
-    def __init__(self, loss_fn : typing.Callable = nn.MSELoss(), device = "cuda"):
+    By default this matches the convolutional feature encoder used by LLVC.
+    Set ``feature_layer`` to an integer to compare transformer hidden states.
+    HuBERT parameters stay frozen, but gradients are retained for ``inputs``.
+    """
+
+    def __init__(
+        self,
+        model_name_or_path: str = "facebook/hubert-base-ls960",
+        feature_layer: int | None = None,
+        loss_type: str = "mse",
+        normalize_waveform: bool = False,
+        local_files_only: bool = False,
+        revision: str | None = None,
+    ):
         super().__init__()
-        model_hub = "facebook/hubert-base-ls960"
-        save_path = "pretrained_models/hubert-base-ls960"
-        self.model = HuBERT(model_hub, save_path).to(device)
-        self.loss_fn = loss_fn
+        if loss_type not in {"mse", "l1"}:
+            raise ValueError("loss_type must be mse or l1")
 
-    def forward(self, inputs, targets):
-        if isinstance(inputs, AudioSignal):
-            inputs = getattr(inputs, "audio_data")
-            targets = getattr(targets, "audio_data")
+        try:
+            from transformers import HubertModel
+        except ImportError as exc:
+            raise ImportError(
+                "HuBERTLoss requires the transformers package. "
+                "Install transformers without fairseq."
+            ) from exc
 
-        inputs = self.model(inputs.squeeze())
-        targets = self.model(targets.squeeze())
-        
-        loss = self.loss_fn(inputs, targets)
-        return loss
+        load_kwargs = {"local_files_only": local_files_only}
+        if revision is not None:
+            load_kwargs["revision"] = revision
+        model = HubertModel.from_pretrained(model_name_or_path, **load_kwargs)
+        model.requires_grad_(False)
+        model.eval()
+
+        # The fixed auxiliary network should not enter optimizers or checkpoints.
+        object.__setattr__(self, "_hubert_model", model)
+        self.feature_layer = feature_layer
+        self.loss_type = loss_type
+        self.normalize_waveform = normalize_waveform
+
+    @property
+    def model(self) -> nn.Module:
+        return self._hubert_model
+
+    @staticmethod
+    def _waveform(value: AudioSignal | torch.Tensor) -> torch.Tensor:
+        if isinstance(value, AudioSignal):
+            value = value.audio_data
+        if value.dim() == 3:
+            if value.shape[1] != 1:
+                raise ValueError(f"Expected mono waveform, got {tuple(value.shape)}")
+            value = value[:, 0]
+        if value.dim() != 2:
+            raise ValueError(
+                f"Expected waveform [B, T] or [B, 1, T], got {tuple(value.shape)}"
+            )
+        return value
+
+    def _normalize(self, waveform: torch.Tensor) -> torch.Tensor:
+        if not self.normalize_waveform:
+            return waveform
+        mean = waveform.mean(dim=-1, keepdim=True)
+        variance = waveform.var(dim=-1, keepdim=True, unbiased=False)
+        return (waveform - mean) * torch.rsqrt(variance + 1e-7)
+
+    def _features(self, waveform: torch.Tensor) -> torch.Tensor:
+        if self.feature_layer is None:
+            return self.model.feature_extractor(waveform)
+        output = self.model(
+            waveform,
+            output_hidden_states=True,
+            return_dict=True,
+        )
+        hidden_states = output.hidden_states
+        if not -len(hidden_states) <= self.feature_layer < len(hidden_states):
+            raise ValueError(
+                f"feature_layer={self.feature_layer} is out of range for "
+                f"{len(hidden_states)} HuBERT hidden states"
+            )
+        return hidden_states[self.feature_layer]
+
+    def forward(
+        self,
+        inputs: AudioSignal | torch.Tensor,
+        targets: AudioSignal | torch.Tensor,
+    ) -> torch.Tensor:
+        inputs = self._normalize(self._waveform(inputs).float())
+        targets = self._normalize(self._waveform(targets).float())
+        if inputs.shape != targets.shape:
+            length = min(inputs.shape[-1], targets.shape[-1])
+            inputs = inputs[..., :length]
+            targets = targets[..., :length]
+
+        model_device = next(self.model.parameters()).device
+        if model_device != inputs.device:
+            self.model.to(inputs.device)
+        self.model.eval()
+
+        autocast = (
+            torch.autocast(device_type=inputs.device.type, enabled=False)
+            if inputs.device.type in {"cpu", "cuda"}
+            else contextlib.nullcontext()
+        )
+        with autocast:
+            input_features = self._features(inputs)
+            with torch.no_grad():
+                target_features = self._features(targets)
+
+            if self.feature_layer is None:
+                frames = min(input_features.shape[-1], target_features.shape[-1])
+                input_features = input_features[..., :frames]
+                target_features = target_features[..., :frames]
+            else:
+                frames = min(input_features.shape[1], target_features.shape[1])
+                input_features = input_features[:, :frames]
+                target_features = target_features[:, :frames]
+            if self.loss_type == "mse":
+                return F.mse_loss(input_features, target_features)
+            return F.l1_loss(input_features, target_features)
 
 
 # class SpeakerLoss(nn.Module):

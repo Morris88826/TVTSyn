@@ -47,6 +47,7 @@ model:
     frame_rate: 50
     num_codes: 200
     encoder_dim: 512
+    decoder_type: "seanet"
     decoder_seanet_args:
       channels: 1
       dimension: 512

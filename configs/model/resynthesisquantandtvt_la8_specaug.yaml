@@ -91,6 +91,7 @@ model:
       ped_loss: 20.0
       hubert_loss: 100000.0
       speaker_loss: 10.0
+    use_pitch_energy_predictor: false
     add_spec_augment_content: true
     learning_rate: 0.0001
     lr_betas: [0.8, 0.99]

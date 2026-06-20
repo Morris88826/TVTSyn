@@ -296,6 +296,95 @@ class DecSeanetNCArgs:
     true_skip: bool = True
 
 @dataclass
+class WaveformDecoderArgs:
+    input_dimension: int = 512
+    frame_hop_samples: int = 320
+    decoder_dim: int = 512
+    decoder_layers: int = 4
+    decoder_heads: int = 8
+    decoder_ffn_dim: int = 2048
+    decoder_context_frames: int = 100
+    decoder_right_context_frames: int = 0
+    activation: str = "SiLU"
+    linear_hidden_dim: int = 1024
+    use_linear_hidden: bool = True
+    use_post_filter: bool = True
+    post_filter_kernel_size: int = 7
+    post_filter_layers: int = 2
+    post_filter_channels: int = 64
+    num_subframes: int = 4
+    subframe_samples: int = 80
+    subframe_mode: str = "learned_tokens"
+    subframe_hidden_dim: int = 1024
+    hybrid_mode: str = "linear_200hz"
+    hybrid_subframes: int = 4
+    hybrid_subframe_dim: int = 256
+    hybrid_refiner_layers: int = 4
+    hybrid_refiner_kernel_size: int = 7
+    istft_n_fft: int = 512
+    istft_hop_length: int = 320
+    istft_win_length: int = 512
+    istft_predict: str = "complex"
+    istft_center: bool = False
+    use_snake_activation: bool = False
+    snake_type: str = "snakebeta"
+    snake_alpha_logscale: bool = True
+    snake_location: str = "decoder"
+
+
+@dataclass
+class EncoderFrontendArgs:
+    sample_rate: int = 16000
+    n_fft: int = 1024
+    win_length: int = 1024
+    hop_length: int = 320
+    n_mels: int = 80
+    f_min: float = 0.0
+    f_max: float = None
+    dimension: int = 512
+    mel_projection_type: str = "linear"
+    mel_cnn_layers: int = 3
+    mel_cnn_kernel_size: int = 5
+    mel_cnn_use_residual: bool = True
+    mel_cnn_activation: str = "ELU"
+    hybrid_raw_frame_samples: int = 320
+    hybrid_raw_dim: int = 512
+    hybrid_raw_conv_layers: int = 1
+    hybrid_raw_conv_kernel_size: int = 3
+    hybrid_raw_use_depthwise: bool = True
+    hybrid_fusion_type: str = "concat"
+
+
+@dataclass
+class HuBERTLossArgs:
+    model_name_or_path: str = "facebook/hubert-base-ls960"
+    feature_layer: int | None = None
+    loss_type: str = "mse"
+    normalize_waveform: bool = False
+    local_files_only: bool = False
+    revision: str | None = None
+
+
+@dataclass
+class SupervisedWav2WavLambdas:
+    mel_loss: float = 20.0
+    adv_gen_loss: float = 1.0
+    adv_feat_loss: float = 2.0
+    hubert_loss: float = 0.0
+    mrstft_logmag_loss: float = 0.0
+    mrstft_sc_loss: float = 0.0
+    complex_stft_loss: float = 0.0
+    f0_loss: float = 0.0
+    vuv_loss: float = 0.0
+    energy_loss: float = 0.0
+    coded_ap_loss: float = 0.0
+    harmonic_loss: float = 0.0
+    cepstral_envelope_loss: float = 0.0
+    band_stft_loss: float = 0.0
+    wav_l1_loss: float = 0.0
+
+
+@dataclass
 class MSWavHaxArgs:
     input_dim: int = 512
     nfft: int = 256

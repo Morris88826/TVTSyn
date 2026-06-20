@@ -9,11 +9,11 @@ from torchmetrics import MinMetric, MeanMetric
 
 from src.modules import PasrWithQuantModule
 from src.models import MimiDecoderWithTVTimbreModel
-from src.components import SEANetDecoder
+from src.components import create_waveform_decoder
 from src.components.frame_synthesizer import FrameSynthesizerWOExciter
 from src.components.discriminator import Discriminator
 from src.components.losses import L1Loss, MultiScaleSTFTLoss, MelSpectrogramLoss, GANLoss, LossPED
-from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs, DecSeanetNCArgs, Lambdas, FrameSynthesizerArgs, TVTimbreArgs
+from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs, DecSeanetNCArgs, Lambdas, FrameSynthesizerArgs, TVTimbreArgs, WaveformDecoderArgs
 
 
 
@@ -33,7 +33,9 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
         frame_rate: int = 50,
         num_codes: int = 200,
         encoder_dim: int = 512,
+        decoder_type: str = "seanet",
         decoder_seanet_args: DecSeanetNCArgs = DecSeanetNCArgs(),
+        waveform_decoder_args: WaveformDecoderArgs = WaveformDecoderArgs(),
         frame_synthesizer_args: FrameSynthesizerArgs = FrameSynthesizerArgs(),
         tvtimbre_args: TVTimbreArgs = TVTimbreArgs(),
         use_pitch_energy_predictor: bool = True,
@@ -76,7 +78,11 @@ class ResynthesisWithQuantAndTVTimbreModule(pl.LightningModule):
             tvtimbre_args=asdict(tvtimbre_args),
             use_pitch_energy_predictor=use_pitch_energy_predictor,
         )
-        decoder = SEANetDecoder(**asdict(decoder_seanet_args))
+        decoder = create_waveform_decoder(
+            decoder_type=decoder_type,
+            seanet_args=decoder_seanet_args,
+            decoder_args=waveform_decoder_args,
+        )
 
         self.decoder = MimiDecoderWithTVTimbreModel(
             decoder,

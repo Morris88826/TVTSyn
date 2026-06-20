@@ -8,11 +8,16 @@ import torch.nn.functional as F
 from torchmetrics import MaxMetric, MeanMetric
 from torchmetrics.classification.accuracy import Accuracy
 
-from src.components import SEANetEncoder, transformer
+from src.components import create_encoder_frontend, transformer
 from src.models import MimiEncoderWithQuantModel
 from src.components.code_predictor import CodePredictor
 from src.components.quantizer.factorized_vector_quantize import FactorizedVectorQuantize
-from src.components.data_classes import SeanetArgs, TransformerArgs, FVQuantizerArgs
+from src.components.data_classes import (
+    EncoderFrontendArgs,
+    FVQuantizerArgs,
+    SeanetArgs,
+    TransformerArgs,
+)
 
 
 class FocalLoss(torch.nn.Module):
@@ -49,6 +54,8 @@ class PasrWithQuantModule(pl.LightningModule):
         loss_type: str = "cross_entropy",
         focal_gamma: float = 2.0,
         focal_alpha: float | None = None,
+        encoder_frontend_type: str = "seanet",
+        encoder_frontend_args: EncoderFrontendArgs = EncoderFrontendArgs(),
     ):
         super().__init__()
 
@@ -56,7 +63,11 @@ class PasrWithQuantModule(pl.LightningModule):
         # also ensures init params will be stored in ckpt
         self.save_hyperparameters()
 
-        encoder = SEANetEncoder(**asdict(seanet_args))
+        encoder = create_encoder_frontend(
+            encoder_frontend_type,
+            seanet_args=seanet_args,
+            frontend_args=encoder_frontend_args,
+        )
         encoder_transformer = transformer.ProjectedTransformer(
             device=self.device, **asdict(transformer_args)
         )

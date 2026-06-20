@@ -80,6 +80,8 @@ trainer:
   # strategy: ddp_find_unused_parameters_true
   val_check_interval: 0.25
   precision: bf16-mixed
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: norm
   callbacks:
     # https://lightning.ai/docs/pytorch/latest/api/lightning.pytorch.callbacks.ModelCheckpoint.html#lightning.pytorch.callbacks.ModelCheckpoint
     - class_path: ModelCheckpoint

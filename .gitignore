@@ -206,3 +206,6 @@ sample_wav/
 /config.yaml
 
 .vscode/
+
+# uncommitted local changes
+!website/public/audio/demo/results

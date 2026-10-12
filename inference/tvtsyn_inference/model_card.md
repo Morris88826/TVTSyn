@@ -80,9 +80,10 @@ output audio is mono at 16 kHz.
 
 ## License
 
-The weights use **CC BY-NC 4.0**: attribution is required and use is limited to
-noncommercial purposes. See [LICENSE](https://huggingface.co/warisqr007/TVTSyn/blob/main/LICENSE). Source code and the separate
-SpeechBrain speaker models retain their own licenses.
+TVTSyn source code and model weights use **CC BY-NC 4.0**. See
+[LICENSE](https://huggingface.co/warisqr007/TVTSyn/blob/main/LICENSE).
+Third-party components, including the SpeechBrain speaker models, retain their
+own licenses; see the [third-party notices](https://github.com/PSI-TAMU/TVTSyn/blob/main/docs/THIRD_PARTY_NOTICES.md).
 
 ## Citation
 

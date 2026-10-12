@@ -1,9 +1,10 @@
 # Source and artifact attribution
 
-The repository's existing `LICENSE` is retained unchanged. Existing file-level
-copyright and attribution notices are preserved, including Kyutai/Mimi,
-Meta/Audiocraft, Amphion, and the Lightning template. This reorganization does
-not assign a new license to those components, datasets, or external weights.
+TVTSyn's original source code uses [CC BY-NC 4.0](../LICENSE). Third-party
+components retain their existing licenses and file-level copyright and
+attribution notices, including Kyutai/Mimi, Meta/Audiocraft, Amphion, and the
+Lightning template. The TVTSyn license does not replace the licenses of those
+components, datasets, or external weights.
 
 Speaker extraction downloads these independently distributed models:
 

@@ -42,7 +42,7 @@ sdk: gradio
 sdk_version: 5.50.0
 python_version: '3.10'
 app_file: app.py
-license: cc0-1.0
+license: cc-by-nc-4.0
 models:
 - warisqr007/TVTSyn
 short_description: Voice conversion with PyTorch and ONNX streaming

@@ -104,8 +104,9 @@ on the [research-tools branch](https://github.com/PSI-TAMU/TVTSyn/tree/research-
 
 ## License
 
-Model weights: [CC BY-NC 4.0](https://huggingface.co/warisqr007/TVTSyn/blob/main/LICENSE).
-Source code: [CC0](LICENSE), with [third-party notices](docs/THIRD_PARTY_NOTICES.md).
+TVTSyn source code and model weights use [CC BY-NC 4.0](LICENSE).
+Third-party components and sample recordings retain their own licenses; see
+[third-party notices](docs/THIRD_PARTY_NOTICES.md).
 
 ## Citation
 

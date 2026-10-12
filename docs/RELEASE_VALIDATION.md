@@ -2,8 +2,10 @@
 
 The local bundle is `artifacts/TVTSyn`. It contains inference-only safetensors,
 a regenerated 100 ms ONNX graph, its version-2 state schema, configuration,
-provenance hashes, and a draft model card. No Hub upload or Space deployment
-has been performed.
+provenance hashes, model card, and license. The same bundle is published at
+[warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn).
+The Space was created on the author-selected ZeroGPU tier; hosted validation
+is in progress. See [publication status](PUBLICATION.md).
 
 A subsequent repair and CPU-only validation pass is summarized in
 [RELEASE_AUDIT.md](RELEASE_AUDIT.md). It adds the ready-to-run listening review,
@@ -38,11 +40,12 @@ unexpected checkpoint weights.
 See [numerical and timing metrics](validation_metrics.json). Comparison WAVs
 are saved under `artifacts/reference/` for listening. Automated checks cover
 numerical agreement, finite outputs, lengths, and chunk boundaries through the
-reference comparison; human perceptual listening has not been performed.
+reference comparison; the author accepted the six-case listening review. See
+[the acceptance record](release_approval.json).
 
 ## Runtime and packaging
 
-- 142 tests pass after the follow-up repairs across the existing training suite and new inference/demo tests.
+- 145 tests pass after the follow-up repairs across the existing training suite and new inference/demo tests.
 - Real backend tests cover short clips, partial final frames, reset, interleaved
   sessions, saved embeddings, metadata rejection, and offline artifact loading.
 - Persistent resampling is checked against whole-file resampling at 8, 44.1,
@@ -60,7 +63,10 @@ reference comparison; human perceptual listening has not been performed.
   Save embeddings for exact repeatability. All new notebook code cells executed successfully.
 - Hub tests verify backend-selective downloads, inclusion of external ONNX
   weights, and consistent commit resolution across configuration/artifact fetches.
-  An actual TVTSyn Hub round trip remains pending publication of a model ID.
+  Actual anonymous downloads at release commit
+  `2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa` passed in separate clean environments:
+  both PyTorch modes, ONNX streaming without torch installed, backend-selective
+  downloads, and cached/offline reload. See [publication results](publication_validation.json).
 
 ## Training preservation
 
@@ -90,7 +96,8 @@ WAV through both ONNX and GPU PyTorch in the live UI, verified advancing audio
 playback, and flushed on Stop without page errors.
 The prepared speaker remains available after stopping; a second recording
 started without re-preparation. FFmpeg and ffprobe were present on PATH. This exercises the actual
-browser flow; physical microphone hardware and human listening remain manual.
+browser flow; physical microphone hardware was not tested and was explicitly waived by the
+author. Human listening was accepted separately.
 See [demo results](demo_validation.json).
 
 Measurements below are a local 30-second CPU smoke run on an AMD EPYC 7543
@@ -131,4 +138,5 @@ git fetch release-backups/attr_modify.bundle refs/remotes/origin/attr_modify:ref
 ```
 
 Generated artifacts removed from Git tracking remain on disk. No repository
-history was rewritten, and no implementation commit or source push was made.
+history was rewritten. Source changes are committed on main; the Space wheel
+records its exact source revision in `release.json`.

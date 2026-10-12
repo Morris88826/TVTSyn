@@ -28,7 +28,8 @@ pip install -e '.[pytorch,onnx,speaker]'
 **Pretrained model:** [warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn)
 contains the PyTorch weights, ONNX graph, state schema and configuration.
 TVTSyn weights use CC BY-NC 4.0. This release is pinned to
-`2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa`. The Space deployment is being validated.
+`2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa`. The [ZeroGPU Space](https://huggingface.co/spaces/warisqr007/TVTSyn)
+is being deployed and validated.
 
 ```python
 from tvtsyn_inference import TVTSyn
@@ -72,7 +73,7 @@ Install FFmpeg (`ffmpeg` and `ffprobe` on PATH) for browser audio playback.
 
 ```bash
 pip install -e '.[demo]'
-TVTSYN_MODEL=artifacts/TVTSyn python spaces/demo/app.py
+python spaces/demo/app.py
 ```
 
 The [Space source](spaces/demo/README.md) supports file conversion and live

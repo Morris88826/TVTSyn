@@ -11,6 +11,10 @@ import threading
 import time
 import uuid
 
+ZERO_GPU = os.environ.get('TVTSYN_ZEROGPU') == '1'
+if ZERO_GPU:
+    import spaces  # Must precede torch imports so ZeroGPU can install its CUDA hooks.
+
 import gradio as gr
 import numpy as np
 import soundfile as sf
@@ -20,7 +24,7 @@ from tvtsyn_inference.audio import speaker_array
 
 MODEL = os.environ.get('TVTSYN_MODEL', 'warisqr007/TVTSyn')
 REVISION = os.environ.get('TVTSYN_REVISION', '2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa')
-DEVICE = os.environ.get('TVTSYN_DEVICE', 'cpu')
+DEVICE = 'cpu' if ZERO_GPU else os.environ.get('TVTSYN_DEVICE', 'cpu')
 MAX_SECONDS = 60
 LOCK = threading.RLock()
 
@@ -38,6 +42,20 @@ class Session:
 
 
 SESSIONS = {}
+
+# ZeroGPU leases end after each decorated call. Live sessions therefore stay
+# on CPU; the file path owns all GPU state inside one call. Load CUDA weights
+# at startup as required by ZeroGPU's CUDA emulation.
+if ZERO_GPU:
+    GPU_MODEL = TVTSyn.from_pretrained(MODEL, backend='pytorch', revision=REVISION, device='cuda')
+
+    @spaces.GPU(duration=60)
+    def convert_on_gpu(source, speaker, mode):
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+            output = f.name
+        GPU_MODEL.convert_file(source, speaker, output=output, mode=mode)
+        return output
+
 
 
 @lru_cache(maxsize=2)
@@ -187,9 +205,13 @@ def convert(backend, mode, source, target, embedding):
         raise gr.Error('Provide source audio.')
     if backend == 'onnx' and mode == 'whole':
         raise gr.Error('Select streaming mode for ONNX.')
+    if ZERO_GPU and sf.info(source).duration > MAX_SECONDS:
+        raise gr.Error('This hosted demo accepts source clips up to 60 seconds.')
     with LOCK:
         model = get_model(backend)
         speaker = condition(model, target, embedding)
+        if ZERO_GPU and backend == 'pytorch':
+            return convert_on_gpu(source, speaker, mode)
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
             output = f.name
         model.convert_file(source, speaker, output=output, mode=mode)
@@ -206,7 +228,9 @@ def end_recording(key):
 
 def build_app():
     with gr.Blocks(title='TVTSyn voice conversion', delete_cache=(60, 3600)) as demo:
-        gr.Markdown('# TVTSyn\nConvert speech using a target voice. [Model card](https://huggingface.co/warisqr007/TVTSyn) · [Source](https://github.com/PSI-TAMU/TVTSyn)\n\nTVTSyn weights: CC BY-NC 4.0 (noncommercial use with attribution). Streaming uses 100 ms model chunks; browser and network buffering add latency. This CPU demo may process PyTorch audio slower than real time.')
+        gr.Markdown('# TVTSyn\nConvert speech using a target voice. [Model card](https://huggingface.co/warisqr007/TVTSyn) · [Source](https://github.com/PSI-TAMU/TVTSyn)\n\nTVTSyn weights: CC BY-NC 4.0 (noncommercial use with attribution). Streaming uses 100 ms model chunks; browser and network buffering add latency. Live PyTorch audio may process slower than real time on CPU.')
+        if ZERO_GPU:
+            gr.Markdown('PyTorch file conversion uses ZeroGPU (subject to its queue and quota). ONNX, speaker preparation, and live sessions use CPU. Clips are limited to 60 seconds.')
         backend = gr.Radio(['pytorch', 'onnx'], value='onnx', label='Backend')
         with gr.Row():
             target = gr.Audio(sources=['upload', 'microphone'], type='filepath', label='Target reference voice')

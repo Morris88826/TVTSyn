@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-11",
+  "model": {
+    "repo_id": "warisqr007/TVTSyn",
+    "revision": "2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa",
+    "url": "https://huggingface.co/warisqr007/TVTSyn"
+  },
+  "hub_checks": [
+    {
+      "backend": "onnx",
+      "revision": "2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa",
+      "anonymous_download": true,
+      "files": [
+        "config.json",
+        "onnx/tvtsyn_step_100ms.onnx",
+        "onnx/tvtsyn_step_100ms.onnx.json"
+      ],
+      "modes": [
+        "streaming"
+      ],
+      "cached_offline_reload": true
+    },
+    {
+      "backend": "pytorch",
+      "revision": "2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa",
+      "anonymous_download": true,
+      "files": [
+        "config.json",
+        "model.safetensors"
+      ],
+      "modes": [
+        "whole",
+        "streaming"
+      ],
+      "cached_offline_reload": true
+    }
+  ],
+  "tests": {
+    "passed": 145,
+    "warnings": 8
+  },
+  "space": {
+    "repo_id": "warisqr007/TVTSyn",
+    "status": "created; deployment in progress",
+    "hardware": "zero-a10g",
+    "created": true,
+    "paid_hardware_requested": false
+  }
+}

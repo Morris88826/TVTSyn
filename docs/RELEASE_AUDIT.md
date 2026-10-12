@@ -1,12 +1,14 @@
 # Release preparation status — 2026-10-11
 
-The issues found in the completion audit have been fixed locally. The listening
-setup is ready. Human listening/physical-microphone review and authenticated
-publication remain pending; no model or Space has been uploaded.
+The release implementation and cleanup are complete. The author accepted all
+six listening cases and explicitly waived physical microphone testing; see
+[release approval](release_approval.json). The public model is
+[warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn), with CC BY-NC 4.0
+weights and unchanged source licensing.
 
-Start with [LISTENING_VALIDATION.md](LISTENING_VALIDATION.md).
-The planned model and Space IDs are `warisqr007/TVTSyn`. The author-selected
-TVTSyn weight license is CC BY-NC 4.0; the existing code license is unchanged.
+Anonymous Hub downloads and real conversion passed for both backends, including
+ONNX without PyTorch and cached/offline reload. The Space was created on the author-selected ZeroGPU tier. Hosted validation
+is in progress. No paid hardware was requested.
 
 ## Resolved findings
 
@@ -20,7 +22,7 @@ TVTSyn weight license is CC BY-NC 4.0; the existing code license is unchanged.
 | Sample provenance unknown | Retrieved originals and COPYING from the CMU ARCTIC publisher; release samples now match upstream bytes, with checksums in `samples/provenance.json`. Prior local samples preserved. |
 | Draft model card/license | Model card now includes architecture/modes, training data from the paper, citation, limitations, numerical checks, and the selected weight license. Full license included in export and wheel resources. |
 | Remote branch cleanup | Verified the complete local bundle and unchanged tip, then deleted `origin/attr_modify` using authenticated GitHub CLI from the darkstream environment. A fresh remote lookup confirmed deletion. |
-| Full suite blocked by host GPU driver | Created a persistent CPU-only PyTorch/torchaudio environment. Full suite: **142 passed**. No GPU reset or changes to another research environment. |
+| Full suite blocked by host GPU driver | Created a persistent CPU-only PyTorch/torchaudio environment. Full suite: **145 passed**. No GPU reset or changes to another research environment. |
 
 ## Listening setup and validation
 
@@ -34,10 +36,10 @@ TVTSyn weight license is CC BY-NC 4.0; the existing code license is unchanged.
   ratings, and exports the same review JSON without a web server. It leaves
   physical-microphone checks pending until separately completed.
 - Browser automation verified actual playback, rating persistence and download.
-  It did not supply human ratings. The user's results remain pending.
+  It did not supply human ratings. The author subsequently accepted all six cases.
 - Local Gradio microphone playback, stop, and restart were retested using a
-  simulated microphone with both ONNX and CPU PyTorch. Physical hardware and
-  perceptual judgments still need the user.
+  simulated microphone with both ONNX and CPU PyTorch. Physical hardware was not tested; the author
+  explicitly waived it as a publication prerequisite.
 - CPU PyTorch thread count is bounded/configurable in the demo.
 
 ### Extended numerical finding
@@ -53,21 +55,16 @@ by changing the original reference tests or altering model weights.
 The extended listening set has a separately documented criterion of
 `atol=0.002, rtol=0.001` and mean absolute error no more than `0.000005`.
 All six current cases meet it. The page displays both criteria and the measured
-errors. Human review must still check the affected region before publication.
+errors. The author subsequently marked all six listening cases as passing.
 See the detailed rationale in the listening guide and the diagnosis JSONs in
 `artifacts/`.
 
-## Remaining actions
+## Hosted validation
 
-1. **User listening and physical microphone validation.** Review the prepared
-   page, complete the demo checks, download results, and run
-   `inference/check_listening.py`. Resolve any failed/uncertain cases.
-2. **Hub publication and Space deployment follow the accepted review.** The
-   sequence is documented in [PUBLICATION.md](PUBLICATION.md), including real
-   Hub round-trip tests, commit pinning, deployed browser checks, and final
-   README links. Those checks cannot be completed before actual publication.
-3. **Commit/source release.** Implementation is still uncommitted. New source
-   and documentation are present in the working tree, not in the current HEAD.
+The Space is being deployed on ZeroGPU. Validate uploads and simulated
+microphone playback at its hosted URL. Physical microphone testing remains
+explicitly waived, not recorded as a pass. See [PUBLICATION.md](PUBLICATION.md).
 
 Generated model/audio artifacts, environments and branch backups remain
-ignored; local historical data/checkpoints were preserved.
+ignored; local historical data/checkpoints and reviewed notebook outputs were
+preserved. `origin/attr_modify` is archived and deleted; main history is intact.

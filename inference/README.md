@@ -13,15 +13,18 @@ Validated versions and checks are recorded in [release validation](../docs/RELEA
 
 ## Obtain a model
 
-A public Hugging Face model ID has not been assigned or uploaded yet. Maintainers
-can create `artifacts/TVTSyn` using [the export command](export/README.md).
-After publication, substitute the actual model ID and an immutable release
-revision for the local directory in these examples. Weights are not stored in Git.
+Download automatically from [warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn).
+The release uses CC BY-NC 4.0 for model weights. Pin the commit below for
+reproducibility; each backend downloads only its required artifacts. A local
+exported bundle can also be passed instead of the model ID. Weights are not
+stored in Git.
 
 ```python
 from tvtsyn_inference import TVTSyn
 
-model = TVTSyn.from_pretrained('artifacts/TVTSyn', backend='pytorch', device='cpu')
+MODEL = 'warisqr007/TVTSyn'
+REVISION = '2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa'
+model = TVTSyn.from_pretrained(MODEL, backend='pytorch', revision=REVISION, device='cpu')
 speaker = model.encode_speaker('samples/target.wav')
 y = model.convert_file('samples/source.wav', speaker, output='outputs/whole.wav')
 y_stream = model.convert_file('samples/source.wav', speaker,
@@ -37,7 +40,7 @@ embedding when exact repeatability is needed. Use several seconds of clean targe
 ```python
 import numpy as np
 np.save('outputs/target.npy', speaker)
-onnx = TVTSyn.from_pretrained('artifacts/TVTSyn', backend='onnx')
+onnx = TVTSyn.from_pretrained(MODEL, backend='onnx', revision=REVISION)
 onnx.convert_file('samples/source.wav', 'outputs/target.npy',
                   output='outputs/onnx.wav')
 ```
@@ -82,14 +85,14 @@ trims the result; ONNX rejects whole mode and processes files through streaming.
 ## Command line
 
 ```bash
-tvtsyn --model artifacts/TVTSyn --backend pytorch --mode whole \
+tvtsyn --model warisqr007/TVTSyn --revision 2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa --backend pytorch --mode whole \
   --source samples/source.wav --target samples/target.wav \
   --save-embedding outputs/target.npy --output outputs/whole.wav
 
-tvtsyn --model artifacts/TVTSyn --backend pytorch --mode streaming \
+tvtsyn --model warisqr007/TVTSyn --revision 2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa --backend pytorch --mode streaming \
   --source samples/source.wav --embedding outputs/target.npy --output outputs/stream.wav
 
-tvtsyn --model artifacts/TVTSyn --backend onnx --mode streaming \
+tvtsyn --model warisqr007/TVTSyn --revision 2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa --backend onnx --mode streaming \
   --source samples/source.wav --embedding outputs/target.npy --output outputs/onnx.wav
 ```
 
@@ -97,7 +100,8 @@ tvtsyn --model artifacts/TVTSyn --backend onnx --mode streaming \
 
 ```python
 model = TVTSyn.from_pretrained(
-    '<organization>/TVTSyn', backend='onnx', revision='<commit-sha>',
+    'warisqr007/TVTSyn', backend='onnx',
+    revision='2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa',
     cache_dir='./model-cache', local_files_only=False,
 )
 model.save_pretrained('./local-onnx')
@@ -127,5 +131,5 @@ and [local Space app](../spaces/demo/README.md).
 
 See [LISTENING_VALIDATION.md](../docs/LISTENING_VALIDATION.md) for the persistent
 CPU environment, IDE kernel selection, prepared comparison audio, physical
-microphone checks, and downloadable review results. Publication to
-`warisqr007/TVTSyn` follows acceptance of that review.
+microphone checks, and downloadable review results. The author accepted the six-case listening review and explicitly waived physical
+microphone testing for this release; the model is now published.

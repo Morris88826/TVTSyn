@@ -18,6 +18,6 @@ The TVTSyn weight license selected by the authors is CC BY-NC 4.0, included
 in the exported bundle as `LICENSE`. The code license is unchanged. The model
 card now documents training data from the accompanying paper, artifact
 provenance, numerical validation, limitations, and citation. Human listening
-validation and authenticated publication remain separate release steps.
+validation and publication status are recorded in [PUBLICATION.md](PUBLICATION.md).
 The demonstration recordings are verified publisher originals with their
 own `samples/COPYING` notice and SHA-256 provenance.

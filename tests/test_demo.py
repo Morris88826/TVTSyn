@@ -69,3 +69,25 @@ def test_continuous_playback_queue_and_restart(app,tmp_path):
     assert next(player)==first
     app.close_session(key)
     with pytest.raises(StopIteration):next(player)
+
+
+def test_zerogpu_file_dispatch_preserves_live_cpu_model(app, tmp_path, monkeypatch):
+    import soundfile as sf
+    source = tmp_path / 'source.wav'
+    embedding = tmp_path / 'speaker.npy'
+    sf.write(source, np.zeros(3200, np.float32), 16000)
+    np.save(embedding, np.zeros(704, np.float32))
+    calls = []
+    monkeypatch.setattr(app, 'ZERO_GPU', True)
+    def gpu(source, speaker, mode):
+        calls.append((source, speaker.shape, mode))
+        return 'gpu-output.wav'
+    monkeypatch.setattr(app, 'convert_on_gpu', gpu, raising=False)
+    assert app.convert('pytorch', 'streaming', str(source), None, str(embedding)) == 'gpu-output.wav'
+    assert calls == [(str(source), (1, 704), 'streaming')]
+    key, _ = app.prepare('pytorch', None, str(embedding), None)
+    assert app.receive((16000, np.zeros(3200, np.float32)), key) is not None
+    assert len(calls) == 1
+    sf.write(source, np.zeros(16000 * 61, np.float32), 16000)
+    with pytest.raises(app.gr.Error, match='60 seconds'):
+        app.convert('pytorch', 'whole', str(source), None, str(embedding))

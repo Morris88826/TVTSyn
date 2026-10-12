@@ -1,68 +1,60 @@
-# Publication after listening validation
+# Publication — 2026-10-11
 
-Planned model ID: `warisqr007/TVTSyn`.
-Planned Space ID: `warisqr007/TVTSyn`.
-TVTSyn weight license: **CC BY-NC 4.0**. The repository code retains its existing
-license. No repository has been created or uploaded by this preparation step.
+Model: [warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn).
+Model revision: `2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa`.
+Space: [warisqr007/TVTSyn](https://huggingface.co/spaces/warisqr007/TVTSyn),
+created on ZeroGPU; deployment validation is in progress.
 
-## Before uploading
+The author accepted all six listening cases and explicitly waived physical
+microphone hardware testing. See [release approval](release_approval.json).
+Weights use **CC BY-NC 4.0**; the source retains CC0. The Hub contains inference
+safetensors, the ONNX graph/state schema, configuration, model card, and license.
+Training checkpoints and local listening audio were not uploaded.
 
-1. Finish the listening and physical-microphone review in
-   [LISTENING_VALIDATION.md](LISTENING_VALIDATION.md), including investigation
-   of any failed numerical checks. Validate the downloaded review JSON.
-2. Record the accepted review, validation results, and source revision.
-3. Commit the reviewed source changes so the deployment can use an immutable
-   revision. GitHub authentication and the backed-up `attr_modify` branch
-   deletion are complete.
-4. Authenticate the Hugging Face CLI locally as `warisqr007` with a token
-   permitted to create/upload model and Space repositories. Do not commit
-   tokens or paste them into source files.
+Anonymous downloads at the pinned commit passed in separate clean environments:
+PyTorch whole utterance and streaming, ONNX streaming without PyTorch installed,
+backend-selective downloads, and cached/offline reload. See
+[publication checks](publication_validation.json).
 
-The prepared `artifacts/TVTSyn` bundle contains config, inference safetensors,
-ONNX graph/state schema, a complete model card, and the weight license. Review
-that directory explicitly; do not upload `artifacts/` wholesale, since it also
-contains local validation audio and private/custom review inputs.
+## Reproduce the Space deployment
 
-## Publication sequence
-
-- Upload `artifacts/TVTSyn` to the model repository and record the resulting
-  commit hash. Training Lightning checkpoints are separate from the
-  inference weights; the public inference loader expects the exported bundle.
-- In fresh PyTorch and ONNX environments, load the actual model ID at that
-  commit. Exercise backend-selective downloading, cached/offline loading,
-  and a conversion. Keep the saved-embedding ONNX environment free of torch.
-- Build a wheel from the committed source and prepare the Gradio Space with
-  `spaces/demo/app.py`, FFmpeg system dependencies, and that pinned package.
-  Set `TVTSYN_MODEL=warisqr007/TVTSyn` and `TVTSYN_REVISION` to the model commit.
-  Choose hardware based on measured latency; CPU PyTorch is slower than
-  real time on the tested setup.
-- Deploy and test uploads, real microphone playback, stop/restart, and session
-  isolation at the deployed URL. Record browser/network latency separately.
-- Replace the root README's local release-status text with the working Hub
-  and Space links and revision-pinned examples only after these checks pass.
-
-## GitHub authentication and completed branch cleanup
-
-Completed on 2026-10-11 using `gh` from the darkstream environment. The remote
-branch is deleted and its complete history remains in
-`release-backups/attr_modify.bundle`. The commands below are retained for
-reference; deletion does not need to be repeated.
-
-Browser login is separate from command-line credentials. With GitHub CLI:
+Build a wheel from a committed checkout and stage the app:
 
 ```bash
-gh auth login --hostname github.com --git-protocol https --web
-gh auth setup-git
-gh auth status
+python -m build --wheel --outdir artifacts/dist
+python spaces/demo/prepare_space.py \
+  --wheel artifacts/dist/tvtsyn-0.1.0-py3-none-any.whl \
+  --revision 2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa \
+  --source-revision "$(git rev-parse HEAD)" --hardware zero-a10g
 ```
 
-If `gh` is unavailable in a conda environment, install it using
-`conda install -c conda-forge gh`. Once authentication works:
+The staging directory `artifacts/space` contains the application, wheel,
+dependencies, license, a README derived from the model card, and `release.json`
+with the source commit and wheel checksum. Set Space variable
+`TVTSYN_ZEROGPU=1` and upload only this directory to the Gradio Space.
+`prepare_space.py` also supports `--hardware cpu-basic` for a CPU deployment.
+
+ZeroGPU allocates a GPU for each PyTorch file conversion. ONNX conversion,
+reference-speaker preparation, and live sessions run on CPU. Keeping live
+state on CPU avoids losing caches across GPU leases. Source clips are bounded
+to 60 seconds in the hosted app. ZeroGPU queues and per-user quotas can delay or
+reject file conversion; CPU PyTorch live inference can be slower than real time.
+
+The first cpu-basic creation attempt returned HTTP 402. At the author’s request,
+ZeroGPU was selected and repository creation succeeded. No paid hardware or
+subscription was purchased. See [ZeroGPU hosting requirements](https://huggingface.co/docs/hub/spaces-zerogpu).
+
+## Repository cleanup
+
+Generated data, checkpoints, notebook outputs, environments, and branch backups
+remain local and ignored. The reviewed notebook with its ratings is preserved
+under `artifacts/publication/`. Source notebooks are clean templates.
+
+`origin/attr_modify` was archived in the verified local
+`release-backups/attr_modify.bundle`, then deleted with a lease against tip
+`17af7d9f2d70f9ca8673432a11f6851917159f9f`. It was not merged and main history
+was not rewritten. Restore a local copy if needed:
 
 ```bash
-git bundle verify release-backups/attr_modify.bundle
-git push --force-with-lease=refs/heads/attr_modify:17af7d9f2d70f9ca8673432a11f6851917159f9f origin :refs/heads/attr_modify
+git fetch release-backups/attr_modify.bundle refs/remotes/origin/attr_modify:refs/heads/attr_modify
 ```
-
-The lease prevents deletion if someone advances the branch. Its complete
-history can be restored from the local bundle, without rewriting main.

@@ -5,7 +5,7 @@ sdk_version: 5.50.0
 app_file: app.py
 ---
 
-# Local demo
+# TVTSyn demo
 
 Install the system FFmpeg package first (`ffmpeg` and `ffprobe` must be on PATH),
 for example `conda install -c conda-forge ffmpeg` in a conda environment.
@@ -14,7 +14,7 @@ From the repository root:
 
 ```bash
 pip install -e '.[demo]'
-TVTSYN_MODEL=artifacts/TVTSyn python spaces/demo/app.py
+python spaces/demo/app.py
 ```
 
 `TVTSYN_MODEL` accepts a local bundle or a Hugging Face model ID. Set
@@ -34,11 +34,18 @@ independent of microphone ingestion. Backend calls are serialized, so concurrent
 increase latency. PCM playback clips values outside [-1, 1] at a fixed scale.
 The Python/file API preserves float samples without this playback clipping.
 
-This is a locally runnable Space source, not a deployed Space. To publish later,
-install a pinned TVTSyn package/repository revision in the Space environment,
-set its model ID and revision, and copy this app plus its dependencies. The model
-repository holds the weights. Browser playback and network latency must be
-measured on the intended deployment hardware.
+The app defaults to the published Hub model and immutable release revision.
+Set `TVTSYN_MODEL=artifacts/TVTSyn` to use a local bundle instead.
+The [hosted Space](https://huggingface.co/spaces/warisqr007/TVTSyn) uses ZeroGPU
+for PyTorch file conversion; ONNX, speaker preparation, and live sessions run
+on CPU to preserve state across callbacks. `TVTSYN_ZEROGPU=1` enables the hosted
+GPU path and requires CUDA PyTorch plus the `spaces` package. Leave it unset
+for local use. Hosted source files are limited to 60 seconds.
+
+See [publication instructions](../../docs/PUBLICATION.md) to build and stage the
+Space with pinned model and source revisions. The generated README is derived
+from the model card. Browser/network latency and ZeroGPU queueing add to model
+processing time; CPU PyTorch live conversion may be slower than real time.
 
 ## Browser regression check
 

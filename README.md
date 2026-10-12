@@ -17,16 +17,14 @@
 </a>
 <br>
 
+Official code for our [ICLR 2026 paper](https://openreview.net/forum?id=Tf4Lfw85lS).
+Convert speech into a target voice using a short recording of that voice.
 
 ## Inference
 
-| Backend | Whole utterance | Streaming input | Target conditioning |
-| --- | --- | --- | --- |
-| PyTorch | Yes | 100 ms chunks | Reference audio or saved embedding |
-| ONNX Runtime | File through streaming chunks | Fixed 100 ms chunks | Reference audio via optional PyTorch extraction, or saved embedding |
+### Installation
 
-Requires Python 3.10+. Install matching PyTorch and torchaudio builds for your
-hardware when using reference-audio conditioning.
+Requires Python 3.10 or newer. Run the examples from the repository directory.
 
 ```bash
 git clone https://github.com/PSI-TAMU/TVTSyn.git
@@ -34,80 +32,89 @@ cd TVTSyn
 pip install -e '.[pytorch,onnx,speaker]'
 ```
 
-**Pretrained model:** [warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn)
-contains the PyTorch weights, ONNX graph, state schema and configuration.
-TVTSyn weights use CC BY-NC 4.0. This release is pinned to
-`2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa`. Try the [ZeroGPU Space](https://huggingface.co/spaces/warisqr007/TVTSyn)
-for file conversion and live microphone input. PyTorch file conversion uses
-ZeroGPU; ONNX and live sessions run on CPU.
+### PyTorch
+
+`from_pretrained()` downloads the model from
+[Hugging Face](https://huggingface.co/warisqr007/TVTSyn) automatically.
+Run this example with the included recordings, or replace the paths with your own:
 
 ```python
 from tvtsyn_inference import TVTSyn
 
-model = TVTSyn.from_pretrained(
-    'warisqr007/TVTSyn', backend='pytorch',
-    revision='2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa',
+# Download the PyTorch model from Hugging Face (cached after the first run).
+model = TVTSyn.from_pretrained("warisqr007/TVTSyn", backend="pytorch")
+
+# Use a recording of the voice you want the output to sound like.
+speaker = model.encode_speaker("samples/target.wav")
+model.convert_file("samples/source.wav", speaker, output="outputs/converted.wav")
+```
+
+For PyTorch streaming, process the same file in 100 ms chunks:
+
+```python
+model.convert_file(
+    "samples/source.wav", speaker,
+    mode="streaming", output="outputs/pytorch_streaming.wav",
 )
-speaker = model.encode_speaker('samples/target.wav')
-model.convert_file('samples/source.wav', speaker, output='outputs/converted.wav')
 ```
 
-For ONNX-only conversion with a saved `[1, 704]` speaker embedding:
+### ONNX
 
-```bash
-pip install -e '.[onnx]'
-tvtsyn --model warisqr007/TVTSyn --backend onnx \
-  --revision 2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa \
-  --source samples/source.wav --embedding target.npy --output outputs/onnx.wav
+ONNX processes audio in 100 ms chunks:
+
+```python
+from tvtsyn_inference import TVTSyn
+
+# Download the ONNX model from Hugging Face.
+model = TVTSyn.from_pretrained("warisqr007/TVTSyn", backend="onnx")
+speaker = model.encode_speaker("samples/target.wav")
+model.convert_file("samples/source.wav", speaker, output="outputs/onnx.wav")
 ```
 
-Read the [inference guide](inference/README.md) for PyTorch streaming, ONNX,
-live input sessions, offline loading, and notebooks. The first release is mono
-16 kHz, with 100 ms streaming steps and 80 ms encoder lookahead. These are model
-settings, not a claim of end-to-end latency on arbitrary hardware.
+Reference-audio speaker extraction uses PyTorch. To run ONNX without PyTorch,
+use a saved speaker embedding; see the [inference guide](inference/README.md#onnx-without-pytorch).
+Outputs are mono WAV files at 16 kHz; input files are resampled automatically.
 
-## Listening validation
-
-The author accepted the six-case listening review; physical microphone hardware
-was not tested and was explicitly waived for this release. A CPU environment
-and listening pack are also available locally to maintainers. Open the
-[VS Code listening notebook](inference/notebooks/listening_validation.ipynb)
-for embedded playback and saved ratings without a web server. Follow
-[the listening guide](docs/LISTENING_VALIDATION.md) to compare all three modes,
-test your microphone, and download the review results. The publication sequence
-is in [PUBLICATION.md](docs/PUBLICATION.md).
+See the [inference notebook](inference/notebooks/inference.ipynb) and
+[inference guide](inference/README.md) for live audio blocks, GPU selection,
+saved embeddings, and offline use.
 
 ## Local demo
 
-Install FFmpeg (`ffmpeg` and `ffprobe` on PATH) for browser audio playback.
+Try the [online demo](https://huggingface.co/spaces/warisqr007/TVTSyn),
+or run it locally. Install FFmpeg first, then:
 
 ```bash
 pip install -e '.[demo]'
 python spaces/demo/app.py
 ```
 
-The [Space source](spaces/demo/README.md) supports file conversion and live
-microphone input with both backends. It loads weights through the same API.
+Open the local URL printed in the terminal. Upload source and target recordings
+for file conversion. For live input, prepare the target voice before recording.
+See the [demo guide](spaces/demo/README.md) for settings.
 
-## Training and research
+## Training
 
-The original two-stage training workflow, resume support, and experimental
-variants are documented in [training/README.md](training/README.md).
-[Anonymization](anonymization/README.md) and evaluation remain research tools;
-the public conversion API accepts supplied target embeddings.
+See the [training guide](training/README.md) for data preparation, the two
+training stages, and resuming checkpoints. To use your trained model for
+inference, follow the [export guide](inference/export/README.md).
 
-```text
-src/tvtsyn/       Shared networks and components
-training/         Lightning modules, data modules, configs, scripts, and training guide
-inference/        Public API, backend runtimes, export tools, examples, and notebooks
-spaces/demo/      Runnable local Gradio demo
-samples/          Small attributed demonstration set
-anonymization/    Preserved research anonymization tools
-evaluation/       Preserved research evaluation tools
-tests/            Training and inference regression tests
-artifacts/        Local model bundles and validation outputs (ignored by Git)
+Evaluation, anonymization experiments, tests, and release tools are preserved
+on the [research-tools branch](https://github.com/PSI-TAMU/TVTSyn/tree/research-tools).
+
+## License
+
+Model weights: [CC BY-NC 4.0](https://huggingface.co/warisqr007/TVTSyn/blob/main/LICENSE).
+Source code: [CC0](LICENSE), with [third-party notices](docs/THIRD_PARTY_NOTICES.md).
+
+## Citation
+
+```bibtex
+@inproceedings{quamer2026tvtsyn,
+  title={{TVTSyn}: Content-Synchronous Time-Varying Timbre for Streaming Voice Conversion and Anonymization},
+  author={Waris Quamer and Mu-Ruei Tseng and Ghady Nasrallah and Ricardo Gutierrez-Osuna},
+  booktitle={The Fourteenth International Conference on Learning Representations},
+  year={2026},
+  url={https://openreview.net/forum?id=Tf4Lfw85lS}
+}
 ```
-
-See [validation results](docs/RELEASE_VALIDATION.md) and
-[third-party notices](docs/THIRD_PARTY_NOTICES.md). Existing source license headers
-and the repository [LICENSE](LICENSE) are retained.

@@ -12,12 +12,9 @@ Speaker extraction downloads these independently distributed models:
 
 Their pinned revisions are recorded in each release bundle. They are referenced
 rather than repackaged as TVTSyn weights. See their model cards for attribution,
-training data, and license information. See `samples/README.md` for audio provenance.
+training data, and license information. See [samples/README.md](../samples/README.md) for audio provenance.
 
-The TVTSyn weight license selected by the authors is CC BY-NC 4.0, included
-in the exported bundle as `LICENSE`. The code license is unchanged. The model
-card now documents training data from the accompanying paper, artifact
-provenance, numerical validation, limitations, and citation. Human listening
-validation and publication status are recorded in [PUBLICATION.md](PUBLICATION.md).
-The demonstration recordings are verified publisher originals with their
-own `samples/COPYING` notice and SHA-256 provenance.
+TVTSyn model weights use CC BY-NC 4.0; the full license is included in the
+model repository. Demonstration recordings retain their own
+[`samples/COPYING`](../samples/COPYING) notice and
+[provenance](../samples/provenance.json).

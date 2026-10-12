@@ -18,7 +18,6 @@ speaker = ["torch>=2.6,<2.9", "torchaudio>=2.6,<2.9", "speechbrain>=1.1,<1.2"]
 training = ["tvtsyn[pytorch,speaker]", "pytorch-lightning>=2.5,<3", "torchmetrics", "jsonargparse[signatures]", "wandb", "tensorboard", "pyrootutils", "python-dotenv", "librosa>=0.11", "scikit-learn", "pandas", "matplotlib", "scipy", "pyloudnorm", "rich", "transformers<5", "datasets", "debugpy", "pyworld>=0.3.5", "descript-audiotools @ git+https://github.com/descriptinc/audiotools@348ebf2034ce24e2a91a553e3171cb00c0c71678"]
 export = ["tvtsyn[pytorch,onnx]", "onnx>=1.17", "onnxscript>=0.3"]
 demo = ["tvtsyn[pytorch,onnx,speaker]", "gradio>=5.50,<6"]
-test = ["pytest>=8", "PyYAML", "build"]
 
 [project.scripts]
 tvtsyn = "tvtsyn_inference.cli:main"
@@ -32,7 +31,3 @@ namespaces = false
 [tool.setuptools.package-data]
 tvtsyn_inference = ["model_card.md", "model_license.txt"]
 training = ["configs/*.yaml", "configs/model/*.yaml", "configs/data/*.yaml"]
-
-[tool.pytest.ini_options]
-pythonpath = ["src", "inference", "."]
-testpaths = ["tests"]

@@ -37,6 +37,7 @@ convolution history persist across calls. `ISTFTDecoder` is experimental and
 full-utterance only. It raises `NotImplementedError` in streaming mode until a
 stateful overlap-add implementation is added.
 
-Run `benchmark_decoder.py --decoder_type frame_linear --chunk_frames 3` to
+On the [research-tools branch](https://github.com/PSI-TAMU/TVTSyn/tree/research-tools),
+run `python -m training.scripts.benchmark_decoder --decoder_type frame_linear --chunk_frames 3` to
 measure decoder-only first-chunk latency, average latency, RTF, parameter count,
 and output length.

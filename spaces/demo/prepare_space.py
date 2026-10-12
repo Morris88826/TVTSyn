@@ -49,8 +49,7 @@ short_description: Voice conversion with PyTorch and ONNX streaming
 ---
 
 '''
-    (out/'README.md').write_text(front+'This Space loads the published model at revision `'+a.revision+'`.\n'
-        'The app code retains CC0; TVTSyn weights use CC BY-NC 4.0.\n\n'+card+'\n')
+    (out/'README.md').write_text(front+card+'\n')
     record={'model':'warisqr007/TVTSyn','model_revision':a.revision,'source_revision':a.source_revision,
             'hardware':a.hardware,'wheel':wheel.name,'wheel_sha256':wheel_hash,'package_source':package_source}
     (out/'release.json').write_text(json.dumps(record,indent=2)+'\n')

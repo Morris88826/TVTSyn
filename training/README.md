@@ -67,10 +67,3 @@ architectures for the first public streaming bundle. WORLD preprocessing uses
 Training logs go to `logs/`. Logging defaults use Weights & Biases; override
 `--trainer.logger false` for local checks. Device selection defaults to automatic
 with one device and can be overridden with Lightning trainer arguments.
-
-## Local resume smoke validation
-
-`python -m training.scripts.validate_resume` restores both trusted local checkpoints
-and executes two further CPU steps using the preserved preprocessed local examples.
-It writes `artifacts/training_validation.json`. These fixtures/checkpoints are
-local and intentionally excluded from the source release.

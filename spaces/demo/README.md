@@ -1,14 +1,12 @@
----
-title: TVTSyn
-sdk: gradio
-sdk_version: 5.50.0
-app_file: app.py
----
-
 # TVTSyn demo
 
-Install the system FFmpeg package first (`ffmpeg` and `ffprobe` must be on PATH),
-for example `conda install -c conda-forge ffmpeg` in a conda environment.
+Try the [online Space](https://huggingface.co/spaces/warisqr007/TVTSyn),
+or run the same app locally.
+
+## Run locally
+
+Install FFmpeg so that `ffmpeg` and `ffprobe` are on PATH. For example, in a
+conda environment: `conda install -c conda-forge ffmpeg`.
 
 From the repository root:
 
@@ -17,54 +15,53 @@ pip install -e '.[demo]'
 python spaces/demo/app.py
 ```
 
-`TVTSYN_MODEL` accepts a local bundle or a Hugging Face model ID. Set
-`TVTSYN_REVISION` to a release commit when using the Hub. `TVTSYN_DEVICE`
-selects the PyTorch/speaker device (default `cpu`); ONNX uses CPU.
-`TVTSYN_THREADS` controls ONNX threads (default one);
-`TVTSYN_TORCH_THREADS` controls CPU PyTorch threads (default four); `TVTSYN_OFFLINE=1` disables downloads.
-Offline reference-audio conditioning additionally requires cached speaker models.
+Open the URL printed in the terminal. The app downloads the model from
+Hugging Face automatically.
 
-The file tab supports whole-utterance PyTorch and streaming PyTorch/ONNX.
-For live conversion, prepare the target, allow microphone access, record, then
-stop to drain the tail. Saved `.npy` embeddings avoid speaker extraction.
-Recording is bounded to 60 seconds; prepare again after the limit or a backend
-change. Inactive state expires after 120 seconds. Models are shared; stream
-caches are per user. Playback uses a continuous generator and a bounded queue per recording,
-independent of microphone ingestion. Backend calls are serialized, so concurrent users can
-increase latency. PCM playback clips values outside [-1, 1] at a fixed scale.
-The Python/file API preserves float samples without this playback clipping.
+## Convert audio
 
-The app defaults to the published Hub model and immutable release revision.
-Set `TVTSYN_MODEL=artifacts/TVTSyn` to use a local bundle instead.
-The [hosted Space](https://huggingface.co/spaces/warisqr007/TVTSyn) uses ZeroGPU
-for PyTorch file conversion; ONNX, speaker preparation, and live sessions run
-on CPU to preserve state across callbacks. `TVTSYN_ZEROGPU=1` enables the hosted
-GPU path and requires CUDA PyTorch plus the `spaces` package. Leave it unset
-for local use. Hosted source files are limited to 60 seconds.
+For a file, select a backend, upload the target voice and source speech, then
+click **Convert**. PyTorch supports whole-file and streaming conversion;
+ONNX uses streaming.
 
-See [publication instructions](../../docs/PUBLICATION.md) to build and stage the
-Space with pinned model and source revisions. The generated README is derived
-from the model card. Browser/network latency and ZeroGPU queueing add to model
-processing time; CPU PyTorch live conversion may be slower than real time.
+For live input, upload a target recording (or saved `.npy` speaker embedding),
+open **Live microphone**, and click **Prepare target**. Allow microphone access,
+click **Record**, then **Stop** to finish. You can record again with the same
+target. Recordings are limited to 60 seconds; prepare the target again after
+reaching the limit or changing the backend.
 
-## Browser regression check
+The online Space uses ZeroGPU for PyTorch file conversion. ONNX and live input
+run on CPU. Shared compute and network delays affect playback; PyTorch live
+conversion on CPU may be slower than real time.
 
-```bash
-pip install playwright
-playwright install chromium
-python spaces/demo/validate_browser.py --backend onnx \
-  --embedding outputs/target.npy
-```
+## Settings
 
-The test uses Chromium's simulated microphone to feed `samples/source.wav`,
-asserts actual browser playback progress, stops, and restarts without preparing
-the target again. Use `--backend pytorch` to test that path; `TVTSYN_DEVICE`
-selects its device. Reports and screenshots go to `artifacts/browser`.
+| Variable | Purpose |
+| --- | --- |
+| `TVTSYN_MODEL` | Hub model ID or local model directory |
+| `TVTSYN_REVISION` | Hub model version to load |
+| `TVTSYN_DEVICE` | Local PyTorch device, such as `cpu` or `cuda` |
+| `TVTSYN_OFFLINE=1` | Load cached/local files without downloads |
+| `TVTSYN_THREADS` | ONNX CPU threads (default 1) |
+| `TVTSYN_TORCH_THREADS` | PyTorch CPU threads (default 4) |
 
-To test the deployed app with the same simulated microphone flow:
+For offline use, prepare a local model and saved embedding as described in the
+[inference guide](../../inference/README.md#download-for-offline-use).
+
+## Deploy your own Space
+
+Build a wheel from a committed checkout and stage the app:
 
 ```bash
-python spaces/demo/validate_browser.py \
-  --url https://warisqr007-tvtsyn.hf.space --backend onnx \
-  --embedding outputs/target.npy
+pip install build
+python -m build --wheel --outdir artifacts/dist
+python spaces/demo/prepare_space.py \
+  --wheel artifacts/dist/tvtsyn-0.1.0-py3-none-any.whl \
+  --revision 2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa \
+  --source-revision "$(git rev-parse HEAD)" --hardware zero-a10g
 ```
+
+Upload the contents of `artifacts/space` to a Gradio Space using ZeroGPU and set
+its `TVTSYN_ZEROGPU` variable to `1`. The generated requirements install TVTSyn
+from the specified GitHub commit, so push that commit first. Leave
+`TVTSYN_ZEROGPU` unset for local use.

@@ -204,3 +204,5 @@ sample_wav/
 
 # Lightning CLI validation snapshot (preserved locally)
 /config.yaml
+
+.vscode/

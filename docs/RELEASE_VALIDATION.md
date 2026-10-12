@@ -4,8 +4,8 @@ The local bundle is `artifacts/TVTSyn`. It contains inference-only safetensors,
 a regenerated 100 ms ONNX graph, its version-2 state schema, configuration,
 provenance hashes, model card, and license. The same bundle is published at
 [warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn).
-The Space was created on the author-selected ZeroGPU tier; hosted validation
-is in progress. See [publication status](PUBLICATION.md).
+The [Space](https://huggingface.co/spaces/warisqr007/TVTSyn) is running on the
+author-selected ZeroGPU tier. See [publication status](PUBLICATION.md).
 
 A subsequent repair and CPU-only validation pass is summarized in
 [RELEASE_AUDIT.md](RELEASE_AUDIT.md). It adds the ready-to-run listening review,
@@ -45,7 +45,7 @@ reference comparison; the author accepted the six-case listening review. See
 
 ## Runtime and packaging
 
-- 145 tests pass after the follow-up repairs across the existing training suite and new inference/demo tests.
+- 146 tests pass after the follow-up repairs across the existing training suite and new inference/demo tests.
 - Real backend tests cover short clips, partial final frames, reset, interleaved
   sessions, saved embeddings, metadata rejection, and offline artifact loading.
 - Persistent resampling is checked against whole-file resampling at 8, 44.1,
@@ -119,6 +119,29 @@ ONNX 1.22.0, SpeechBrain 1.1.1, Gradio 5.50.0, Lightning 2.6.5, NumPy 2.5.2,
 soxr 1.1.0, safetensors 0.8.0. The combined training environment resolved
 huggingface-hub 0.36.2; the clean inference wheels also passed with 1.33.0.
 Audiotools was installed from the pinned source revision in training requirements.
+
+## Published Space checks
+
+The deployed app at model revision
+`2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa` passed PyTorch whole-utterance,
+PyTorch streaming-file, and ONNX streaming-file conversion. All returned
+51,761 finite samples at 16 kHz for the sample source. The test covered saved
+embeddings and fresh reference-audio speaker extraction.
+
+PyTorch file conversion uses a ZeroGPU lease; ONNX, speaker extraction, and
+live sessions run on CPU. Browser tests used separate sessions and Chromium’s
+simulated microphone for both backends. Each test verified advancing playback,
+Stop, and a second recording without re-preparation, with no JavaScript page
+errors. Physical microphone hardware remains explicitly waived by the author.
+
+Measured file-request round trips were 5.978 s (PyTorch whole), 2.324 s
+(PyTorch streaming), and 9.459 s (ONNX with initial reference extraction).
+These single-request observations include queueing/network and cold-start work;
+they are not per-chunk timings or universal real-time claims. The local CPU
+measurements above separate steady-state model processing from those costs.
+
+The Space uses Gradio 5.50.0 and Python 3.10.13. Its release manifest pins the
+model, source, and wheel checksum. See [publication results](publication_validation.json).
 
 ## Branch cleanup
 

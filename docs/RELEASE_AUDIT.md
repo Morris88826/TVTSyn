@@ -7,8 +7,10 @@ six listening cases and explicitly waived physical microphone testing; see
 weights and unchanged source licensing.
 
 Anonymous Hub downloads and real conversion passed for both backends, including
-ONNX without PyTorch and cached/offline reload. The Space was created on the author-selected ZeroGPU tier. Hosted validation
-is in progress. No paid hardware was requested.
+ONNX without PyTorch and cached/offline reload. The [Space](https://huggingface.co/spaces/warisqr007/TVTSyn) is running on the
+author-selected ZeroGPU tier. All three hosted file-conversion modes passed,
+and both live backends passed simulated-microphone playback and stop/restart
+checks. No paid hardware was requested.
 
 ## Resolved findings
 
@@ -22,7 +24,7 @@ is in progress. No paid hardware was requested.
 | Sample provenance unknown | Retrieved originals and COPYING from the CMU ARCTIC publisher; release samples now match upstream bytes, with checksums in `samples/provenance.json`. Prior local samples preserved. |
 | Draft model card/license | Model card now includes architecture/modes, training data from the paper, citation, limitations, numerical checks, and the selected weight license. Full license included in export and wheel resources. |
 | Remote branch cleanup | Verified the complete local bundle and unchanged tip, then deleted `origin/attr_modify` using authenticated GitHub CLI from the darkstream environment. A fresh remote lookup confirmed deletion. |
-| Full suite blocked by host GPU driver | Created a persistent CPU-only PyTorch/torchaudio environment. Full suite: **145 passed**. No GPU reset or changes to another research environment. |
+| Full suite blocked by host GPU driver | Created a persistent CPU-only PyTorch/torchaudio environment. Full suite: **146 passed**. No GPU reset or changes to another research environment. |
 
 ## Listening setup and validation
 
@@ -61,8 +63,10 @@ See the detailed rationale in the listening guide and the diagnosis JSONs in
 
 ## Hosted validation
 
-The Space is being deployed on ZeroGPU. Validate uploads and simulated
-microphone playback at its hosted URL. Physical microphone testing remains
+The Space is running on ZeroGPU. Upload conversion, reference-audio preparation,
+saved embeddings, and simulated microphone playback were checked at its hosted
+URL. Separate browser sessions completed two recording cycles per backend with
+no JavaScript page errors. Physical microphone testing remains
 explicitly waived, not recorded as a pass. See [PUBLICATION.md](PUBLICATION.md).
 
 Generated model/audio artifacts, environments and branch backups remain

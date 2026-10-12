@@ -17,7 +17,9 @@ Waris Quamer, Mu-Ruei Tseng, Ghady Nasrallah, and Ricardo Gutierrez-Osuna.
 
 Inference weights for [TVTSyn: Content-Synchronous Time-Varying Timbre for
 Streaming Voice Conversion and Anonymization](https://arxiv.org/abs/2602.09389).
-[Source and installation](https://github.com/PSI-TAMU/TVTSyn).
+[Source and installation](https://github.com/PSI-TAMU/TVTSyn) ·
+[Try the ZeroGPU Space](https://huggingface.co/spaces/warisqr007/TVTSyn).
+PyTorch file conversion uses ZeroGPU; ONNX and live streams run on CPU.
 
 ## License and intended use
 

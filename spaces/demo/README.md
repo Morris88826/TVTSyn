@@ -60,3 +60,11 @@ The test uses Chromium's simulated microphone to feed `samples/source.wav`,
 asserts actual browser playback progress, stops, and restarts without preparing
 the target again. Use `--backend pytorch` to test that path; `TVTSYN_DEVICE`
 selects its device. Reports and screenshots go to `artifacts/browser`.
+
+To test the deployed app with the same simulated microphone flow:
+
+```bash
+python spaces/demo/validate_browser.py \
+  --url https://warisqr007-tvtsyn.hf.space --backend onnx \
+  --embedding outputs/target.npy
+```

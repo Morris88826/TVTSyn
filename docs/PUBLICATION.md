@@ -3,7 +3,9 @@
 Model: [warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn).
 Model revision: `2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa`.
 Space: [warisqr007/TVTSyn](https://huggingface.co/spaces/warisqr007/TVTSyn),
-created on ZeroGPU; deployment validation is in progress.
+running on ZeroGPU. Hosted file conversions passed in all three modes.
+Simulated-microphone browser tests passed for both backends, including playback
+and two recording cycles with stop/restart. No JavaScript page errors occurred.
 
 The author accepted all six listening cases and explicitly waived physical
 microphone hardware testing. See [release approval](release_approval.json).
@@ -13,7 +15,9 @@ Training checkpoints and local listening audio were not uploaded.
 
 Anonymous downloads at the pinned commit passed in separate clean environments:
 PyTorch whole utterance and streaming, ONNX streaming without PyTorch installed,
-backend-selective downloads, and cached/offline reload. See
+backend-selective downloads, and cached/offline reload. The public inference
+notebook also executed successfully against the Hub model. The final local
+suite passed **146 tests**. See
 [publication checks](publication_validation.json).
 
 ## Reproduce the Space deployment
@@ -30,7 +34,11 @@ python spaces/demo/prepare_space.py \
 
 The staging directory `artifacts/space` contains the application, wheel,
 dependencies, license, a README derived from the model card, and `release.json`
-with the source commit and wheel checksum. Set Space variable
+with the source commit and wheel checksum. By default, requirements install
+the pinned GitHub source (push that commit first). To install an already
+uploaded wheel instead, pass `--wheel-revision <Space-commit-containing-wheel>`;
+the generated URL pins both commit and SHA-256. Spaces installs requirements
+before copying app files, so a local wheel path cannot be used there. Set Space variable
 `TVTSYN_ZEROGPU=1` and upload only this directory to the Gradio Space.
 `prepare_space.py` also supports `--hardware cpu-basic` for a CPU deployment.
 

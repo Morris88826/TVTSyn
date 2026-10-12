@@ -1,13 +1,22 @@
-# TVTSyn: Content-Synchronous Time-Varying Timbre for Streaming Voice Conversion and Anonymization
+# TVTSyn: Content-Synchronous Time-Varying Timbre for Streaming Voice Conversion and Anonymization (ICLR 2026)
 
-Waris Quamer, Mu-Ruei Tseng, Ghady Nasrallah, and Ricardo Gutierrez-Osuna
+[Waris Quamer](https://github.com/warisqr007), [Mu-Ruei Tseng](https://github.com/Morris88826), [Ghady Nasrallah](https://github.com/Ghadynasrallah), and [Ricardo Gutierrez-Osuna](https://scholar.google.com/citations?user=UnuQfEwAAAAJ&hl=en)
 
-TVTSyn aligns time-varying speech content with time-varying timbre for streaming
-voice conversion. A global timbre memory, content-conditioned attention, gating,
-and spherical interpolation provide local timbre variation; a factorized
-vector-quantized content bottleneck reduces residual speaker information.
 
-[Paper](TVTSyn_ICLR26.pdf) · [Audio demonstrations](https://anonymized0826.github.io/TVTSyn/)
+<a href="https://arxiv.org/abs/2602.09389">
+  <img src="https://img.shields.io/badge/arXiv-2602.09389-%23B31B1B">
+</a>
+<a href="https://huggingface.co/warisqr007/TVTSyn">
+  <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-Models-FFD21E">
+</a>
+<a href="https://huggingface.co/spaces/warisqr007/TVTSyn">
+  <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-FFD21E">
+</a>
+<a href="https://anonymized0826.github.io/TVTSyn/">
+  <img src="https://img.shields.io/badge/Demo%20Page-online-brightgreen">
+</a>
+<br>
+
 
 ## Inference
 
@@ -28,8 +37,9 @@ pip install -e '.[pytorch,onnx,speaker]'
 **Pretrained model:** [warisqr007/TVTSyn](https://huggingface.co/warisqr007/TVTSyn)
 contains the PyTorch weights, ONNX graph, state schema and configuration.
 TVTSyn weights use CC BY-NC 4.0. This release is pinned to
-`2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa`. The [ZeroGPU Space](https://huggingface.co/spaces/warisqr007/TVTSyn)
-is being deployed and validated.
+`2d3147b8a465e1d9aad33a2a0e53956bf8ed32aa`. Try the [ZeroGPU Space](https://huggingface.co/spaces/warisqr007/TVTSyn)
+for file conversion and live microphone input. PyTorch file conversion uses
+ZeroGPU; ONNX and live sessions run on CPU.
 
 ```python
 from tvtsyn_inference import TVTSyn

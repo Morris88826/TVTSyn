@@ -1,0 +1,4 @@
+# Run from the repository root: pip install -r training/requirements.txt
+-e .[training]
+# The PyPI 0.7.2 release pins an obsolete protobuf; use the tested source revision.
+descript-audiotools @ git+https://github.com/descriptinc/audiotools@348ebf2034ce24e2a91a553e3171cb00c0c71678

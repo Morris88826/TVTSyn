@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from sklearn.preprocessing import minmax_scale, StandardScaler
 
-from src.anonymization import PoolAnonymizer, RandomAnonymizer, GANAnonymizer
+from anonymization import PoolAnonymizer, RandomAnonymizer, GANAnonymizer
 
 TAGS_TO_MODELS = {
     'pool': 'pool_minmax_ecapa+xvector',

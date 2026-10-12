@@ -1,0 +1,18 @@
+[
+  {
+    "file": "source.wav",
+    "upstream_url": "http://festvox.org/cmu_arctic/cmu_arctic/cmu_us_bdl_arctic/wav/arctic_a0001.wav",
+    "local_sha256": "2594562568c97203d6c3c2c2ff87b9a7c62389100a014934ab0ad39d15af0384",
+    "upstream_sha256": "2594562568c97203d6c3c2c2ff87b9a7c62389100a014934ab0ad39d15af0384",
+    "pcm_equal": true,
+    "byte_identical": true
+  },
+  {
+    "file": "target.wav",
+    "upstream_url": "http://festvox.org/cmu_arctic/cmu_arctic/cmu_us_slt_arctic/wav/arctic_a0001.wav",
+    "local_sha256": "7862eb2cccb56875910f6bf46f9b8d26dac36e7672829aabe3956b0837ae122e",
+    "upstream_sha256": "7862eb2cccb56875910f6bf46f9b8d26dac36e7672829aabe3956b0837ae122e",
+    "pcm_equal": true,
+    "byte_identical": true
+  }
+]

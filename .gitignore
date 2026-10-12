@@ -182,5 +182,25 @@ results*
 ICLR26Results/
 ICLR26Results_quantitative/
 data/metadata/
-evaluation/
+# Research source is tracked; generated evaluation outputs are ignored below.
 sample_wav/
+# Local release bundles, reference waveforms, and branch backups
+/artifacts/
+/outputs/
+/release-backups/
+/dist/
+/build/
+*.egg-info/
+# Historical experiment data remains local, not part of the public source release.
+/data/speakers/
+/sample_wav/
+/notebooks/
+/evaluation/speaker_embeddings.pkl
+/evaluation/evaluation_data.csv
+/anonymization/models/**/*.pt
+
+# Local listening environment and kernel
+/.venv-listening/
+
+# Lightning CLI validation snapshot (preserved locally)
+/config.yaml

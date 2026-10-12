@@ -1,36 +1,24 @@
+from evaluation.settings import dataset_roots, resolve_device
 import os
 import sys
-sys.path.append('..')
-# sys.path.append('../models/DarkStreamTVT')
 import re
 import glob
 import tqdm
 import torch
 import librosa
 import pandas as pd
-from src.modules import SpeakerModule
+from training.modules import SpeakerModule
 
 
-speaker_encoder = SpeakerModule(device="cuda" if torch.cuda.is_available() else "cpu")
+speaker_encoder = SpeakerModule(device=os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
 model_name = "DarkStream-quant64-TVT-mel-voc-ns"
 
-data_dir = {
-    # source datasets
-    'artic': "/data/mtseng/L2Artic/all_data_for_ac_vc",
-    'l2artic': "/data/mtseng/L2Artic/all_data_for_ac_vc",
-    'vctk': "/data/mtseng/VCTK-Corpus/wav48",
-    
-    # target datasets
-    'emime-eng': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/English_talkers",
-    'emime-fin': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/Finnish_talkers",
-    'emime-ger': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/German_talkers",
-    'emime-man': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/Mandarin_talkers",
-} 
-results_dir = "/data/waris/code/TVTSyn/ICLR26Results/{}".format(model_name)
-output_dir = "/data/waris/code/TVTSyn/ICLR26Results_quantitative/{}".format(model_name)
+data_dir = dataset_roots()
+results_dir = "ICLR26Results/{}".format(model_name)
+output_dir = "ICLR26Results_quantitative/{}".format(model_name)
 os.makedirs(output_dir, exist_ok=True)
 
-metadata_path = "/data/waris/code/TVTSyn/evaluation/evaluation_data.csv"
+metadata_path = "evaluation/evaluation_data.csv"
 metadata_df = pd.read_csv(metadata_path)
 
 selected_metadata_df = metadata_df[metadata_df['target_dataset'] == 'emime-eng']
@@ -41,8 +29,8 @@ def compute_cosine_similarity(audio_file1, audio_file2, sr=16000):
     audio1, _ = librosa.load(audio_file1, sr=sr)
     audio2, _ = librosa.load(audio_file2, sr=sr)
     
-    audio1_em  = torch.from_numpy(audio1).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
-    audio2_em  = torch.from_numpy(audio2).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
+    audio1_em  = torch.from_numpy(audio1).unsqueeze(0).to(os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
+    audio2_em  = torch.from_numpy(audio2).unsqueeze(0).to(os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
 
     embed1 = speaker_encoder(audio1_em)
     embed2 = speaker_encoder(audio2_em)

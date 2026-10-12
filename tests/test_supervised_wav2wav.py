@@ -6,19 +6,19 @@ import pytest
 import torch
 from torch import nn
 
-from src.components.data_classes import (
+from tvtsyn.components.data_classes import (
     EncoderFrontendArgs,
     HuBERTLossArgs,
     SupervisedWav2WavLambdas,
     TransformerArgs,
     WaveformDecoderArgs,
 )
-from src.components.encoder_frontends import MelTransformerFrontend
-from src.components.losses import HuBERTLoss
-from src.components.transformer import ProjectedTransformer
-from src.components.waveform_decoders import FrameLinearWaveformDecoder
-from src.models import MimiWav2WavModel
-import src.modules.supervisedwav2wav as supervised_module
+from tvtsyn.components.encoder_frontends import MelTransformerFrontend
+from training.components.losses import HuBERTLoss
+from tvtsyn.components.transformer import ProjectedTransformer
+from tvtsyn.components.waveform_decoders import FrameLinearWaveformDecoder
+from tvtsyn.models import MimiWav2WavModel
+import training.modules.supervisedwav2wav as supervised_module
 
 
 def _build_wrapper():

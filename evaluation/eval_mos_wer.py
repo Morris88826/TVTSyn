@@ -1,3 +1,4 @@
+from evaluation.settings import dataset_roots, resolve_device
 import os
 import re
 import glob
@@ -14,7 +15,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # MOS
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device(os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
 # asr = nemo_asr.models.EncDecCTCModelBPE.restore_from("asr/stt_en_conformer_ctc_xlarge_v1.10.0/stt_en_conformer_ctc_xlarge.tar.gz")
 
 def normalize(text):
@@ -24,23 +25,12 @@ def normalize(text):
     text = re.sub(r"[^\w\s]", "", text)
     return text
 
-data_dir = {
-    # source datasets
-    'artic': "/data/mtseng/L2Artic/all_data_for_ac_vc",
-    'l2artic': "/data/mtseng/L2Artic/all_data_for_ac_vc",
-    'vctk': "/data/mtseng/VCTK-Corpus/wav48",
-    
-    # target datasets
-    'emime-eng': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/English_talkers",
-    'emime-fin': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/Finnish_talkers",
-    'emime-ger': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/German_talkers",
-    'emime-man': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/Mandarin_talkers",
-} 
+data_dir = dataset_roots()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, required=True, help="Folder name where the converted audio files are saved")
-    parser.add_argument("--metadata", type=str, default="/home/mtseng/anony_benchmark/notebooks/evaluation_data.csv", help="Path to the metadata CSV file")
+    parser.add_argument("--metadata", type=str, default="evaluation/evaluation_data.csv", help="Path to the metadata CSV file")
     args = parser.parse_args()
 
 

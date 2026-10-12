@@ -1,0 +1,148 @@
+model:
+  class_path: training.modules.SupervisedWav2WavExcitationModule
+  init_args:
+    encoder_frontend_type: hybrid_stem_mel_transformer
+    encoder_frontend_args:
+      sample_rate: 16000
+      n_fft: 1024
+      win_length: 1024
+      hop_length: 320
+      n_mels: 128
+      dimension: 512
+      mel_projection_type: linear
+      hybrid_raw_frame_samples: 320
+      hybrid_raw_dim: 512
+      hybrid_raw_conv_layers: 1
+      hybrid_raw_conv_kernel_size: 3
+      hybrid_raw_use_depthwise: true
+      hybrid_fusion_type: concat
+    transformer_args:
+      d_model: 512
+      num_heads: 8
+      num_layers: 8
+      causal: true
+      layer_scale: 0.01
+      context: 100
+      right_context: 4
+      conv_layout: true
+      max_period: 10000
+      gating: none
+      norm: layer_norm
+      positional_embedding: rope
+      dim_feedforward: 2048
+      input_dimension: 512
+      output_dimensions: [512]
+    decoder_type: istft
+    waveform_decoder_args:
+      input_dimension: 512
+      frame_hop_samples: 320
+      decoder_dim: 512
+      decoder_layers: 4
+      decoder_heads: 8
+      decoder_ffn_dim: 2048
+      decoder_context_frames: 100
+      decoder_right_context_frames: 4
+      activation: SiLU
+      linear_hidden_dim: 1024
+      istft_n_fft: 1024
+      istft_hop_length: 320
+      istft_win_length: 1024
+      istft_predict: complex
+      istft_center: false
+      use_snake_activation: true
+      snake_type: snakebeta
+      snake_location: decoder
+    sample_rate: 16000
+    frame_rate: 50
+    use_prosody_conditioning: true
+    use_target_prosody_teacher_forcing: true
+    prosody_teacher_forcing_prob: 1.0
+    prosody_conditioning_mode: add
+    prosody_hidden_dim: 256
+    prosody_num_layers: 2
+    prosody_kernel_size: 3
+    predict_coded_ap: false
+    coded_ap_dim: 0
+    use_harmonic_source_conditioning: true
+    harmonic_num_harmonics: 8
+    harmonic_noise_std: 0.003
+    harmonic_use_energy_scaling: true
+    harmonic_conditioning_mode: add
+    harmonic_source_n_fft: 512
+    harmonic_source_win_length: 512
+    lambdas:
+      mel_loss: 10.0
+      mrstft_logmag_loss: 2.0
+      mrstft_sc_loss: 1.0
+      complex_stft_loss: 1.0
+      f0_loss: 5.0
+      vuv_loss: 1.0
+      energy_loss: 2.0
+      coded_ap_loss: 0.0
+      harmonic_loss: 1.0
+      cepstral_envelope_loss: 0.5
+      band_stft_loss: 1.0
+      wav_l1_loss: 0.1
+      adv_gen_loss: 1.0
+      adv_feat_loss: 2.0
+      hubert_loss: 150000.0
+    mrstft_loss_args:
+      fft_sizes: [256, 512, 1024, 2048]
+      hop_sizes: [64, 160, 320, 640]
+      win_lengths: [256, 512, 1024, 2048]
+    complex_stft_loss_args:
+      fft_size: 512
+      hop_size: 320
+      win_length: 512
+    harmonic_loss_args:
+      fft_size: 1024
+      hop_size: 320
+      win_length: 1024
+      sample_rate: 16000
+    cepstral_envelope_loss_args:
+      fft_size: 1024
+      hop_size: 320
+      win_length: 1024
+      num_ceps: 40
+    band_stft_loss_args:
+      fft_size: 1024
+      hop_size: 320
+      win_length: 1024
+      sample_rate: 16000
+    discriminator_args:
+      rates: [1, 2, 4]
+      periods: [2, 3, 5, 7, 11]
+      fft_sizes: [2048, 1024, 512, 256]
+      cleanup: true
+    learning_rate: 0.0001
+    lr_betas: [0.8, 0.99]
+    lr_sch_gamma: 0.999996
+    validation_audio_samples: 4
+
+data:
+  class_path: training.data_modules.ParallelAudioDataModule
+  init_args:
+    data_file: ['data/metadata/parallel_audio_ame2ind.txt']
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    segment_size: 48000
+    sampling_rate: 16000
+    frame_rate: 50
+    validation_split: 0.002
+    test_split: 0.002
+    split_seed: 42
+    return_excitation: true
+    excitation_dir_name: excitation
+    excitation_ext: .npz
+    excitation_required: true
+    excitation_hop_length: 320
+
+trainer:
+  accelerator: auto
+  devices: 1
+  num_nodes: 1
+  max_epochs: 20
+  strategy: ddp_find_unused_parameters_true
+  val_check_interval: 0.25
+  precision: bf16-mixed

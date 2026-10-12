@@ -5,8 +5,8 @@ import numpy as np
 import pytest
 import torch
 
-from src.data_modules import parallel_audio
-from src.data_modules.parallel_audio import (
+from training.data_modules import parallel_audio
+from training.data_modules.parallel_audio import (
     ParallelAudioDataset,
     excitation_path_for,
     parallel_audio_collate,
@@ -92,7 +92,7 @@ def test_optional_missing_excitation_disables_whole_batch(tmp_path, monkeypatch)
 def test_preprocessing_helpers_and_validation_output(tmp_path, capsys):
     script = (
         Path(__file__).resolve().parents[1]
-        / "scripts"
+        / "training" / "scripts"
         / "preprocess_parallel_excitation.py"
     )
     spec = importlib.util.spec_from_file_location("preprocess_excitation", script)

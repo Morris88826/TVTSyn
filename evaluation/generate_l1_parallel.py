@@ -1,6 +1,6 @@
+from evaluation.settings import dataset_roots, resolve_device
 import os
 import sys
-sys.path.append('..')
 import torch
 import librosa
 import argparse
@@ -13,7 +13,7 @@ from IPython import display as disp
 import soundfile as sf
 from pathlib import Path
 from tqdm import tqdm
-from src.modules import ResynthesisWithQuantAndTVTimbreModule, SpeakerModule
+from training.modules import ResynthesisWithQuantAndTVTimbreModule, SpeakerModule
 
 import torch
 import torchaudio
@@ -22,7 +22,7 @@ from denoiser.dsp import convert_audio
 
 
 MAX_WAV_VALUE = 32768.0
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device(os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
 
 
 def get_wav_duration(path: Path) -> float:
@@ -33,7 +33,7 @@ def get_wav_duration(path: Path) -> float:
         return len(f) / f.samplerate
 
 
-def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cuda'):
+def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cpu'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
@@ -45,7 +45,7 @@ def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000,
         resyth_audio = resyth_audio.detach().cpu().numpy().astype('int16')
     return resyth_audio
 
-def inference(resynthesizer, source_audio_path, tgt_embed, model_name, use_projector=False, sample_rate=16000, right_context=4, device='cuda'):
+def inference(resynthesizer, source_audio_path, tgt_embed, model_name, use_projector=False, sample_rate=16000, right_context=4, device='cpu'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
@@ -115,7 +115,7 @@ def inference(resynthesizer, source_audio_path, tgt_embed, model_name, use_proje
     resyth_audio = resyth_audio.astype('int16')
     return resyth_audio
 
-def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cuda'):
+def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cpu'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
@@ -193,7 +193,7 @@ def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_
     return resyth_audio
 
 
-def get_synthesizer_model(model_name, device='cuda'):
+def get_synthesizer_model(model_name, device='cpu'):
     if model_name == "DarkStream-quant-TVT":
         resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
             "../ckpts/resynthesis_quant_and_tvtimbre_ft.ckpt",
@@ -243,7 +243,7 @@ def get_synthesizer_model(model_name, device='cuda'):
     return resynthesizer
 
 
-def align_to_source(source_embeds, target_embeds, device='cuda'):
+def align_to_source(source_embeds, target_embeds, device='cpu'):
     source_embeds = source_embeds.squeeze(0).cpu().numpy()
     target_embeds = target_embeds.squeeze(0).cpu().numpy()
 
@@ -318,14 +318,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True, help="Model name to use")
     parser.add_argument("--corpus", type=str, required=True, help="corpus name to use")
+    parser.add_argument("--device", default=os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
+    parser.add_argument("--data-root", default=None, help="Corpus root; alternatively set TVTSYN_DATA_ROOT or TVTSYN_DATASETS_JSON")
     args = parser.parse_args()
+    data_dir = dataset_roots(args.data_root)
 
     model_name = args.model
     corpus_name = args.corpus
 
     pairs = []
     if corpus_name == "l2arctic":
-        data_dir = "/data/waris/data/Multilingual_dataset/data/L2EN"
+        data_dir = dataset_roots(args.data_root)["l2en"]
         pair_with_all_native_speaker = False
 
         native_speakers = ["BDL", "RMS", "CLB", "SLT"]
@@ -361,7 +364,7 @@ if __name__ == "__main__":
 
         print(f"Found {len(pairs)} non-native to native speaker pairs in {data_dir}")
     elif corpus_name == "indictts":
-        data_dir_indictts = "/data/waris/data/IndicTTS"
+        data_dir_indictts = dataset_roots(args.data_root)["indictts"]
         indictts_dir = Path(data_dir_indictts)
         if indictts_dir.exists():
             indic_tts_files = sorted(list(indictts_dir.rglob("**/english/wav/*.wav")))
@@ -372,7 +375,7 @@ if __name__ == "__main__":
 
             print(f"Found {len(pairs)} non-native to native speaker pairs in IndicTTS dataset")
     elif corpus_name == "nptel":
-        data_dir_nptel = "/data/waris/data/nptel/data"
+        data_dir_nptel = dataset_roots(args.data_root)["nptel"]
         nptel_dir = Path(data_dir_nptel)
         if nptel_dir.exists():
             nptel_files = sorted(list(nptel_dir.rglob("indian/**/wav/*.wav")))
@@ -394,20 +397,20 @@ if __name__ == "__main__":
     # Multi-GPU via torchrun
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     world_size = int(os.environ.get("WORLD_SIZE", 1))
-    device = f"cuda:{local_rank}" if world_size > 1 else "cuda:0"
+    device = resolve_device(args.device, local_rank, world_size)
 
     run_rank(local_rank, world_size, device, model_name, pairs)
 
 
 """
 torchrun --nproc_per_node=4 evalution.py --model DarkStream-quant-TVT \
-      --streaming --right_context 4 --metadata /home/mtseng/anony_benchmark/notebooks/evaluation_data.csv \
-        --speaker_embeddings /home/mtseng/anony_benchmark/notebooks/speaker_embeddings.pkl \
-            --out_dir /data/mtseng/ICLR2026/results
+      --streaming --right_context 4 --metadata evaluation/evaluation_data.csv \
+        --speaker_embeddings evaluation/speaker_embeddings.pkl \
+            --out_dir outputs/evaluation
 
 in case port is occupied:
 
 torchrun --standalone --nproc_per_node=4 --master-port=29666 evaluation.py \
     --model DarkStream-quant-TVT-nogtm --metadata evaluation_data.csv \
-        --speaker_embeddings speaker_embeddings.pkl --out_dir=/data/waris/code/TVTSyn/ICLR26Results
+        --speaker_embeddings speaker_embeddings.pkl --out_dir=ICLR26Results
 """

@@ -1,6 +1,6 @@
+from evaluation.settings import dataset_roots, resolve_device
 import os
 import sys
-sys.path.append('..')
 import torch
 import random
 import librosa
@@ -10,26 +10,15 @@ from scipy.io import wavfile
 from IPython import display as disp
 from pathlib import Path
 from tqdm import tqdm
-from src.modules import ResynthesisWithQuantAndTVTimbreModule, SpeakerModule
+from training.modules import ResynthesisWithQuantAndTVTimbreModule, SpeakerModule
 
 MAX_WAV_VALUE = 32768.0
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device(os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
 
-data_dir = {
-    # source datasets
-    'artic': "/data/mtseng/L2Artic/all_data_for_ac_vc",
-    'l2artic': "/data/mtseng/L2Artic/all_data_for_ac_vc",
-    'vctk': "/data/mtseng/VCTK-Corpus/wav48",
-    
-    # target datasets
-    'emime-eng': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/English_talkers",
-    'emime-fin': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/Finnish_talkers",
-    'emime-ger': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/German_talkers",
-    'emime-man': "/data/mtseng/EMIME/UEDIN_bilingual_96kHz_data/Mandarin_talkers",
-} 
+data_dir = dataset_roots()
 
 
-def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cuda'):
+def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cpu'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
@@ -41,7 +30,7 @@ def inference_ns(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000,
         resyth_audio = resyth_audio.detach().cpu().numpy().astype('int16')
     return resyth_audio
 
-def inference(resynthesizer, source_audio_path, tgt_embed, model_name, use_projector=False, sample_rate=16000, right_context=4, device='cuda'):
+def inference(resynthesizer, source_audio_path, tgt_embed, model_name, use_projector=False, sample_rate=16000, right_context=4, device='cpu'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
@@ -111,7 +100,7 @@ def inference(resynthesizer, source_audio_path, tgt_embed, model_name, use_proje
     resyth_audio = resyth_audio.astype('int16')
     return resyth_audio
 
-def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cuda'):
+def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_rate=16000, device='cpu'):
     src_audio, sr = librosa.load(source_audio_path, sr=sample_rate)
     assert sr == sample_rate
     src_audio = torch.from_numpy(src_audio).unsqueeze(0).unsqueeze(0).to(device)
@@ -189,7 +178,7 @@ def inference_latransformer(resynthesizer, source_audio_path, tgt_embed, sample_
     return resyth_audio
 
 
-def get_synthesizer_model(model_name, device='cuda'):
+def get_synthesizer_model(model_name, device='cpu'):
     if model_name == "DarkStream-quant-TVT":
         resynthesizer = ResynthesisWithQuantAndTVTimbreModule.load_from_checkpoint(
             "../ckpts/resynthesis_quant_and_tvtimbre.ckpt",
@@ -284,13 +273,16 @@ def run_rank(rank: int, world_size: int, device: str, model_name: str, fpaths: l
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True, help="Model name to use")
-    # parser.add_argument("--metadata", type=str, default="/home/mtseng/anony_benchmark/notebooks/evaluation_data.csv", help="Path to the metadata CSV file")
+    # parser.add_argument("--metadata", type=str, default="evaluation/evaluation_data.csv", help="Path to the metadata CSV file")
     parser.add_argument("--vpc_split", type=str, default="IEMOCAP_test", help="Path to the metadata CSV file")
-    parser.add_argument("--speaker_embeddings", type=str, default="/home/mtseng/anony_benchmark/notebooks/speaker_embeddings.pkl", help="Path to save/load speaker embeddings")
+    parser.add_argument("--speaker_embeddings", type=str, default="evaluation/speaker_embeddings.pkl", help="Path to save/load speaker embeddings")
     parser.add_argument("--right_context", type=int, default=4, help="Right context for streaming model, e.g., 4 for 80ms latency")
     parser.add_argument("--streaming", action="store_true", help="Whether to use streaming model")
-    parser.add_argument("--out_dir", type=str, default="/mnt/data1/waris/PSI-TAMU/Voice-Privacy-Challenge-2024/data", help="Directory to save the converted audio files")
+    parser.add_argument("--out_dir", type=str, default="outputs/voice_privacy", help="Directory to save the converted audio files")
+    parser.add_argument("--device", default=os.environ.get("TVTSYN_RESEARCH_DEVICE", "cpu"))
+    parser.add_argument("--data-root", default=None, help="Corpus root; alternatively set TVTSYN_DATA_ROOT or TVTSYN_DATASETS_JSON")
     args = parser.parse_args()
+    data_dir = dataset_roots(args.data_root)
 
     model_name = args.model
 
@@ -342,7 +334,7 @@ if __name__ == "__main__":
         # Multi-GPU via torchrun
         local_rank = int(os.environ.get("LOCAL_RANK", 0))
         world_size = int(os.environ.get("WORLD_SIZE", 1))
-        device = f"cuda:{local_rank}" if world_size > 1 else "cuda:0"
+        device = resolve_device(args.device, local_rank, world_size)
 
 
         run_rank(local_rank, world_size, device, model_name, fpaths, speaker_embeddings, out_dir)
@@ -351,13 +343,13 @@ if __name__ == "__main__":
 
 """
 torchrun --nproc_per_node=4 evalution.py --model DarkStream-quant-TVT \
-      --streaming --right_context 4 --metadata /home/mtseng/anony_benchmark/notebooks/evaluation_data.csv \
-        --speaker_embeddings /home/mtseng/anony_benchmark/notebooks/speaker_embeddings.pkl \
-            --out_dir /data/mtseng/ICLR2026/results
+      --streaming --right_context 4 --metadata evaluation/evaluation_data.csv \
+        --speaker_embeddings evaluation/speaker_embeddings.pkl \
+            --out_dir outputs/evaluation
 
 in case port is occupied:
 
 torchrun --standalone --nproc_per_node=4 --master-port=29666 evaluation.py \
     --model DarkStream-quant-TVT-nogtm --metadata evaluation_data.csv \
-        --speaker_embeddings speaker_embeddings.pkl --out_dir=/data/waris/code/TVTSyn/ICLR26Results
+        --speaker_embeddings speaker_embeddings.pkl --out_dir=ICLR26Results
 """

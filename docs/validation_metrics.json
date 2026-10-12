@@ -1,0 +1,71 @@
+{
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "torch": "2.8.0+cu128",
+  "pytorch_threads": 4,
+  "onnx_threads": 1,
+  "tolerances": {
+    "whole_atol": 5e-05,
+    "streaming_atol": 0.0003,
+    "rtol": 0.001
+  },
+  "examples": [
+    {
+      "example": "0",
+      "whole": {
+        "max_abs": 0.0,
+        "mean_abs": 0.0
+      },
+      "legacy_streaming_prefix": {
+        "max_abs": 0.0,
+        "mean_abs": 0.0
+      },
+      "onnx": {
+        "max_abs": 9.900331497192383e-05,
+        "mean_abs": 8.592989502176351e-07
+      },
+      "input_samples": 48000,
+      "output_samples": 48000
+    },
+    {
+      "example": "1",
+      "whole": {
+        "max_abs": 0.0,
+        "mean_abs": 0.0
+      },
+      "legacy_streaming_prefix": {
+        "max_abs": 0.0,
+        "mean_abs": 0.0
+      },
+      "onnx": {
+        "max_abs": 0.00013688206672668457,
+        "mean_abs": 8.149877999130695e-07
+      },
+      "input_samples": 48000,
+      "output_samples": 48000
+    }
+  ],
+  "timing": {
+    "pytorch": {
+      "audio_seconds": 30,
+      "chunk_ms": 100,
+      "first_valid_output_after_input_ms": 200.0,
+      "first_call_processing_ms": 147.4710488691926,
+      "steady_mean_processing_ms": 148.21013240705662,
+      "steady_p95_processing_ms": 164.92129516554996,
+      "rtf": 1.482101324070566
+    },
+    "onnx": {
+      "audio_seconds": 30,
+      "chunk_ms": 100,
+      "first_valid_output_after_input_ms": 200.0,
+      "first_call_processing_ms": 46.97679006494582,
+      "steady_mean_processing_ms": 46.98151682648037,
+      "steady_p95_processing_ms": 47.37816234119237,
+      "rtf": 0.4698151682648037
+    }
+  },
+  "long_stream_parity": {
+    "max_abs": 0.00016519427299499512,
+    "mean_abs": 8.232335062530183e-07
+  }
+}

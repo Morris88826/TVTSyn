@@ -4,15 +4,15 @@ import torch
 from torch import nn
 import yaml
 
-from src.components.data_classes import (
+from tvtsyn.components.data_classes import (
     EncoderFrontendArgs,
     SupervisedWav2WavLambdas,
     TransformerArgs,
     WaveformDecoderArgs,
 )
-from src.models import MimiWav2WavExcitationModel
-import src.modules.supervisedwav2wav as base_module
-from src.modules.supervisedwav2wavexcitation import (
+from tvtsyn.models import MimiWav2WavExcitationModel
+import training.modules.supervisedwav2wav as base_module
+from training.modules.supervisedwav2wavexcitation import (
     SupervisedWav2WavExcitationModule,
 )
 
@@ -108,9 +108,9 @@ def test_excitation_module_accepts_legacy_batch(monkeypatch):
 def test_combined_excitation_config_parses():
     root = Path(__file__).resolve().parents[1]
     config = yaml.safe_load(
-        (root / "configs/train_supervised_wav2wav_excitation.yaml").read_text()
+        (root / "training/configs/train_supervised_wav2wav_excitation.yaml").read_text()
     )
-    assert config["model"]["class_path"] == "modules.SupervisedWav2WavExcitationModule"
+    assert config["model"]["class_path"] == "training.modules.SupervisedWav2WavExcitationModule"
     assert config["data"]["init_args"]["return_excitation"] is True
     assert config["model"]["init_args"]["discriminator_args"]["cleanup"] is True
     assert (

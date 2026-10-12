@@ -1,6 +1,6 @@
 import torch
 
-from src.components.discriminator import Discriminator, MPD, MRD, MSD
+from training.components.discriminator import Discriminator, MPD, MRD, MSD
 
 
 def test_mpd_does_not_pad_already_aligned_input():

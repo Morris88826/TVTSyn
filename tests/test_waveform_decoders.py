@@ -1,15 +1,15 @@
 import pytest
 import torch
 
-from src.components.data_classes import DecSeanetNCArgs
-from src.components.waveform_decoders import (
+from tvtsyn.components.data_classes import DecSeanetNCArgs
+from tvtsyn.components.waveform_decoders import (
     FrameLinearWaveformDecoder,
     HybridLinearCNNDecoder,
     ISTFTDecoder,
     SubframeLinearWaveformDecoder,
     create_waveform_decoder,
 )
-from src.components.seanet import SEANetDecoder
+from tvtsyn.components.seanet import SEANetDecoder
 
 
 COMMON_ARGS = {

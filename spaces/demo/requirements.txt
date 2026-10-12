@@ -1,0 +1,4 @@
+# From the repository root, install: pip install -e '.[demo]'
+# For a future Space deployment, install a pinned release of this repository
+# together with its shared and inference packages; do not upload weights here.
+gradio>=5.50,<6

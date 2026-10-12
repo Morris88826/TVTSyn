@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tvtsyn"
+version = "0.1.0"
+description = "Content-synchronous time-varying timbre for streaming voice conversion"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+dependencies = ["numpy>=1.24", "soundfile>=0.12", "soxr>=0.5", "huggingface-hub>=0.36,<2"]
+
+[project.optional-dependencies]
+pytorch = ["torch>=2.6,<2.9", "einops>=0.8", "safetensors>=0.5"]
+onnx = ["onnxruntime>=1.20"]
+speaker = ["torch>=2.6,<2.9", "torchaudio>=2.6,<2.9", "speechbrain>=1.1,<1.2"]
+training = ["tvtsyn[pytorch,speaker]", "pytorch-lightning>=2.5,<3", "torchmetrics", "jsonargparse[signatures]", "wandb", "tensorboard", "pyrootutils", "python-dotenv", "librosa>=0.11", "scikit-learn", "pandas", "matplotlib", "scipy", "pyloudnorm", "rich", "transformers<5", "datasets", "debugpy", "pyworld>=0.3.5", "descript-audiotools @ git+https://github.com/descriptinc/audiotools@348ebf2034ce24e2a91a553e3171cb00c0c71678"]
+export = ["tvtsyn[pytorch,onnx]", "onnx>=1.17", "onnxscript>=0.3"]
+demo = ["tvtsyn[pytorch,onnx,speaker]", "gradio>=5.50,<6"]
+test = ["pytest>=8", "PyYAML", "build"]
+
+[project.scripts]
+tvtsyn = "tvtsyn_inference.cli:main"
+tvtsyn-export = "tvtsyn_inference.export:main"
+
+[tool.setuptools.packages.find]
+where = ["src", "inference", "."]
+include = ["tvtsyn", "tvtsyn.*", "tvtsyn_inference", "tvtsyn_inference.*", "training", "training.*", "src", "src.components"]
+namespaces = false
+
+[tool.setuptools.package-data]
+tvtsyn_inference = ["model_card.md", "model_license.txt"]
+training = ["configs/*.yaml", "configs/model/*.yaml", "configs/data/*.yaml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "inference", "."]
+testpaths = ["tests"]

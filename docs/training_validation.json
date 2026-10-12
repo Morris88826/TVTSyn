@@ -1,0 +1,14 @@
+[
+  {
+    "stage": "PasrWithQuantModule",
+    "checkpoint_global_step": 679830,
+    "resumed_global_step": 679832,
+    "optimizer_count": 1
+  },
+  {
+    "stage": "ResynthesisWithQuantAndTVTimbreModule",
+    "checkpoint_global_step": 877200,
+    "resumed_global_step": 877202,
+    "optimizer_count": 2
+  }
+]

@@ -1,12 +1,12 @@
 import torch
 
-from src.components.excitation import (
+from tvtsyn.components.excitation import (
     HarmonicSourceGenerator,
     ProsodyConditioner,
     ProsodyPredictor,
 )
-from src.components.periodic_activations import Snake, SnakeBeta
-from src.components.spectral_losses import (
+from tvtsyn.components.periodic_activations import Snake, SnakeBeta
+from tvtsyn.components.spectral_losses import (
     BandWeightedSTFTLoss,
     CepstralEnvelopeLoss,
     ComplexSTFTLoss,
@@ -14,10 +14,10 @@ from src.components.spectral_losses import (
     MultiResolutionSTFTLoss,
     ProsodyLoss,
 )
-from src.components.encoder_frontends import MelTransformerFrontend
-from src.components.transformer import ProjectedTransformer
-from src.components.waveform_decoders import FrameLinearWaveformDecoder
-from src.models import MimiWav2WavExcitationModel
+from tvtsyn.components.encoder_frontends import MelTransformerFrontend
+from tvtsyn.components.transformer import ProjectedTransformer
+from tvtsyn.components.waveform_decoders import FrameLinearWaveformDecoder
+from tvtsyn.models import MimiWav2WavExcitationModel
 
 
 def _model():

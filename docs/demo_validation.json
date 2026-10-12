@@ -1,0 +1,13 @@
+{
+  "callback_streaming": true,
+  "http_startup": true,
+  "http_file_conversion": true,
+  "browser_microphone": "Chromium simulated microphone streamed real source WAV, produced output and flushed on Stop",
+  "browser_page_errors": [],
+  "browser_playback_advanced": true,
+  "browser_restart_without_reprepare": true,
+  "browser_backends": [
+    "onnx",
+    "pytorch"
+  ]
+}

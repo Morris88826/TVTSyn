@@ -1,21 +1,21 @@
 import pytest
 import torch
 
-from src.components.data_classes import (
+from tvtsyn.components.data_classes import (
     EncoderFrontendArgs,
     FVQuantizerArgs,
     SeanetArgs,
     TransformerArgs,
 )
-from src.components.encoder_frontends import (
+from tvtsyn.components.encoder_frontends import (
     HybridStemMelTransformerFrontend,
     MelCNNTransformerFrontend,
     MelTransformerFrontend,
     RawPatchTransformerFrontend,
     create_encoder_frontend,
 )
-from src.components.seanet import SEANetEncoder
-from src.modules.pasrwithquant import PasrWithQuantModule
+from tvtsyn.components.seanet import SEANetEncoder
+from training.modules.pasrwithquant import PasrWithQuantModule
 
 
 FRONTEND_ARGS = {

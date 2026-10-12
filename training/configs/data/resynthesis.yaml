@@ -1,0 +1,14 @@
+data:
+  class_path: training.data_modules.ResynthesisDataModule
+  init_args:
+    data_dir: null
+    data_indictts: null
+    data_file: ['data/metadata/train_files.txt']
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    segment_size: 48000
+    code_hop_size: 320
+    sampling_rate: 16000
+    embed_type: xvector+ecapa
+    split: true

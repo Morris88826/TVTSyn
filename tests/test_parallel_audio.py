@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import torch
 
-from src.data_modules import parallel_audio
-from src.data_modules.parallel_audio import (
+from training.data_modules import parallel_audio
+from training.data_modules.parallel_audio import (
     ParallelAudioDataModule,
     ParallelAudioDataset,
     read_parallel_manifests,

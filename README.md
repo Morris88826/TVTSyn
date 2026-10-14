@@ -29,6 +29,10 @@ Requires Python 3.10 or newer. Run the examples from the repository directory.
 ```bash
 git clone https://github.com/PSI-TAMU/TVTSyn.git
 cd TVTSyn
+
+conda create -n tvtsyn python=3.10
+conda activate tvtsyn
+
 pip install -e '.[pytorch,onnx,speaker]'
 ```
 

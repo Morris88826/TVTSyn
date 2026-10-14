@@ -12,7 +12,7 @@
 <a href="https://huggingface.co/spaces/warisqr007/TVTSyn">
   <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-FFD21E">
 </a>
-<a href="https://morris88826.github.io/TVTSyn/">
+<a href="https://psi-tamu.github.io/TVTSyn/">
   <img src="https://img.shields.io/badge/Demo%20Page-online-brightgreen">
 </a>
 <br>
